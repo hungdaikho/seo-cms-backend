@@ -1,0 +1,793 @@
+openapi: 3.0.3
+info:
+  title: RankTracker Pro API
+  description: |
+    # RankTracker Pro - SEO Management Platform API
+
+    A comprehensive SEO management platform that helps businesses track keyword rankings, 
+    manage SEO projects, conduct website audits, and monitor competitors.
+
+    ## Features
+    - **Multi-tier Subscriptions**: Free, Starter, Professional, Agency plans
+    - **Keyword Tracking**: Bulk keyword management with ranking history
+    - **SEO Audits**: Comprehensive website analysis
+    - **Project Management**: Organize and track multiple SEO projects
+    - **Usage Limits**: Real-time monitoring based on subscription plans
+
+    ## Authentication
+    All protected endpoints require a Bearer token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+
+    ## Rate Limiting
+    API requests are limited based on your subscription plan:
+    - Free: 10 requests/day
+    - Starter: 50 requests/day  
+    - Professional: 200 requests/day
+    - Agency: 1000 requests/day
+  version: 1.0.0
+  contact:
+    name: RankTracker Pro Support
+    url: https://ranktackerpro.com
+    email: support@ranktackerpro.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Development Server
+  - url: https://api.ranktackerpro.com/api/v1
+    description: Production Server
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user with 14-day trial
+      description: |
+        Register a new user account with automatic 14-day trial activation.
+
+        **Trial Benefits:**
+        - Full Pro features for 14 days
+        - Up to 50 keywords tracking
+        - Up to 3 competitors
+        - Complete SEO audits
+        - Email support
+
+        **After Trial:**
+        - Automatic downgrade to Free plan (1 project, 25 keywords)
+        - Option to upgrade to paid plans
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+            examples:
+              basic:
+                summary: Basic Registration
+                value:
+                  email: john.doe@example.com
+                  password: SecurePassword123!
+                  name: John Doe
+                  website: example.com
+      responses:
+        '201':
+          description: User registered successfully with trial activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: |
+        Authenticate user and return JWT access token.
+
+        **Returns:**
+        - User profile information
+        - JWT access token (expires in 30 days)
+        - Current subscription details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+            examples:
+              basic:
+                summary: User Login
+                value:
+                  email: john.doe@example.com
+                  password: SecurePassword123!
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Get current user profile information
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Update user profile information
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserDto'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /users/usage:
+    get:
+      tags:
+        - Users
+      summary: Get user subscription usage
+      description: Get user subscription usage statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Usage data retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsageStatistic'
+
+  /subscriptions/plans:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get available subscription plans
+      description: Get all available subscription plans
+      responses:
+        '200':
+          description: Plans retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionPlan'
+
+  /subscriptions/current:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get current user subscription
+      description: Get user's current active subscription
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current subscription retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSubscription'
+
+  /subscriptions:
+    post:
+      tags:
+        - Subscriptions
+      summary: Create new subscription
+      description: Create a new subscription
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionDto'
+      responses:
+        '201':
+          description: Subscription created successfully
+        '400':
+          description: User already has active subscription
+
+  /projects:
+    post:
+      tags:
+        - Projects
+      summary: Create new project
+      description: Create a new SEO project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectDto'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '403':
+          description: Project limit reached
+    get:
+      tags:
+        - Projects
+      summary: Get user projects
+      description: Get user's projects with pagination
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProjects'
+
+  /projects/{projectId}:
+    get:
+      tags:
+        - Projects
+      summary: Get project by ID
+      description: Get specific project details
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdParam'
+      responses:
+        '200':
+          description: Project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+
+  /projects/{projectId}/keywords:
+    post:
+      tags:
+        - Keywords
+      summary: Add keyword to project
+      description: Add a single keyword to project
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKeywordDto'
+      responses:
+        '201':
+          description: Keyword created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Keyword'
+        '403':
+          description: Keyword limit reached
+
+    get:
+      tags:
+        - Keywords
+      summary: Get project keywords
+      description: Get all keywords for a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SearchParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Keywords retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedKeywords'
+
+  /projects/{projectId}/audits:
+    post:
+      tags:
+        - Audits
+      summary: Start new SEO audit for project
+      description: Start a new SEO audit for project
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuditDto'
+      responses:
+        '201':
+          description: Audit started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audit'
+        '403':
+          description: Audit limit reached
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter JWT token
+
+  parameters:
+    ProjectIdParam:
+      name: projectId
+      in: path
+      required: true
+      description: Project ID
+      schema:
+        type: string
+        format: uuid
+
+    PageParam:
+      name: page
+      in: query
+      description: Page number
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+
+    SearchParam:
+      name: search
+      in: query
+      description: Search term
+      schema:
+        type: string
+
+    SortByParam:
+      name: sortBy
+      in: query
+      description: Sort field
+      schema:
+        type: string
+        default: createdAt
+
+    SortOrderParam:
+      name: sortOrder
+      in: query
+      description: Sort order
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+
+  schemas:
+    RegisterDto:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        password:
+          type: string
+          minLength: 6
+          example: SecurePassword123!
+        name:
+          type: string
+          example: John Doe
+        website:
+          type: string
+          example: example.com
+
+    LoginDto:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        password:
+          type: string
+          example: SecurePassword123!
+
+    UpdateUserDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: John Smith
+        phone:
+          type: string
+          example: +1234567890
+        timezone:
+          type: string
+          example: Europe/London
+
+    CreateProjectDto:
+      type: object
+      required:
+        - name
+        - domain
+      properties:
+        name:
+          type: string
+          example: My SEO Project
+        domain:
+          type: string
+          example: example.com
+        settings:
+          type: object
+          example:
+            location: United States
+            language: en
+
+    CreateKeywordDto:
+      type: object
+      required:
+        - keyword
+      properties:
+        keyword:
+          type: string
+          example: seo tools
+        targetUrl:
+          type: string
+          example: https://example.com/seo-tools
+        searchVolume:
+          type: integer
+          example: 1000
+        difficulty:
+          type: number
+          example: 65.5
+        cpc:
+          type: number
+          example: 2.5
+
+    CreateSubscriptionDto:
+      type: object
+      required:
+        - planId
+        - billingCycle
+      properties:
+        planId:
+          type: string
+          format: uuid
+        billingCycle:
+          type: string
+          enum: [monthly, yearly]
+        paymentMethodId:
+          type: string
+
+    CreateAuditDto:
+      type: object
+      properties:
+        settings:
+          type: object
+          example:
+            include_mobile: true
+            check_accessibility: true
+            analyze_performance: true
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [user, admin, super_admin]
+
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            phone:
+              type: string
+            timezone:
+              type: string
+            avatarUrl:
+              type: string
+            emailVerified:
+              type: boolean
+            lastLoginAt:
+              type: string
+              format: date-time
+            createdAt:
+              type: string
+              format: date-time
+            subscription:
+              $ref: '#/components/schemas/UserSubscription'
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        domain:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Keyword:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        keyword:
+          type: string
+        targetUrl:
+          type: string
+        searchVolume:
+          type: integer
+        difficulty:
+          type: number
+        cpc:
+          type: number
+        currentRanking:
+          type: integer
+        isTracking:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Audit:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        results:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    SubscriptionPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        yearlyPrice:
+          type: number
+        currency:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+        limits:
+          type: object
+
+    UserSubscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [active, cancelled, expired, trial, suspended, pending]
+        plan:
+          $ref: '#/components/schemas/SubscriptionPlan'
+        billingCycle:
+          type: string
+          enum: [monthly, yearly]
+        startedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    UsageStatistic:
+      type: object
+      properties:
+        type:
+          type: string
+        current:
+          type: integer
+        limit:
+          type: integer
+        percentage:
+          type: integer
+        resetDate:
+          type: string
+          format: date
+
+    PaginatedProjects:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    PaginatedKeywords:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Keyword'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Error message
+        statusCode:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: Bad Request
+        details:
+          type: array
+          items:
+            type: string
+
+tags:
+  - name: Authentication
+    description: User registration, login, and JWT management
+  - name: Users
+    description: User profile and account management
+  - name: Subscriptions
+    description: Subscription plans, billing, and usage tracking
+  - name: Projects
+    description: SEO project management and organization
+  - name: Keywords
+    description: Keyword tracking and ranking management
+  - name: Audits
+    description: SEO website audits and analysis

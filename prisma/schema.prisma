@@ -1,0 +1,297 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  user
+  admin
+  super_admin
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+  trial
+  suspended
+  pending
+}
+
+enum BillingCycle {
+  monthly
+  yearly
+}
+
+enum UsageType {
+  projects
+  keywords_tracking
+  api_requests_daily
+  api_requests_monthly
+  audits_monthly
+  competitors_tracking
+  backlinks_monitoring
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+  cancelled
+}
+
+enum AuditStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+enum LinkType {
+  follow
+  nofollow
+}
+
+enum NotificationType {
+  ranking_change
+  audit_completed
+  new_backlink
+  competitor_alert
+  subscription_expiring
+  payment_failed
+  usage_limit_reached
+}
+
+// Models
+model User {
+  id                String            @id @default(uuid()) @db.Uuid
+  email             String            @unique
+  password          String
+  name              String
+  role              UserRole          @default(user)
+  avatarUrl         String?           @map("avatar_url")
+  phone             String?
+  timezone          String            @default("UTC")
+  isActive          Boolean           @default(true) @map("is_active")
+  emailVerified     Boolean           @default(false) @map("email_verified")
+  emailVerifiedAt   DateTime?         @map("email_verified_at")
+  lastLoginAt       DateTime?         @map("last_login_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  projects          Project[]
+  subscriptions     UserSubscription[]
+  usages            SubscriptionUsage[]
+  payments          PaymentHistory[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+model SubscriptionPlan {
+  id           String            @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String            @unique
+  description  String?           @db.Text
+  price        Decimal           @db.Decimal(10, 2)
+  yearlyPrice  Decimal?          @map("yearly_price") @db.Decimal(10, 2)
+  currency     String            @default("USD")
+  features     Json?
+  limits       Json?
+  isActive     Boolean           @default(true) @map("is_active")
+  sortOrder    Int               @default(0) @map("sort_order")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  subscriptions UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id                    String               @id @default(uuid()) @db.Uuid
+  userId                String               @map("user_id") @db.Uuid
+  planId                String               @map("plan_id") @db.Uuid
+  status                SubscriptionStatus   @default(active)
+  billingCycle          BillingCycle         @default(monthly) @map("billing_cycle")
+  startedAt             DateTime             @map("started_at")
+  expiresAt             DateTime?            @map("expires_at")
+  trialEndsAt           DateTime?            @map("trial_ends_at")
+  cancelledAt           DateTime?            @map("cancelled_at")
+  paymentMethod         String?              @map("payment_method")
+  stripeSubscriptionId  String?              @map("stripe_subscription_id")
+  autoRenewal           Boolean              @default(true) @map("auto_renewal")
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      SubscriptionPlan   @relation(fields: [planId], references: [id])
+  usages    SubscriptionUsage[]
+  payments  PaymentHistory[]
+
+  @@map("user_subscriptions")
+}
+
+model SubscriptionUsage {
+  id             String           @id @default(uuid()) @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  subscriptionId String           @map("subscription_id") @db.Uuid
+  usageType      UsageType        @map("usage_type")
+  currentUsage   Int              @default(0) @map("current_usage")
+  limitValue     Int              @map("limit_value")
+  resetDate      DateTime?        @map("reset_date") @db.Date
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription UserSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("subscription_usage")
+}
+
+model PaymentHistory {
+  id                     String            @id @default(uuid()) @db.Uuid
+  userId                 String            @map("user_id") @db.Uuid
+  subscriptionId         String            @map("subscription_id") @db.Uuid
+  amount                 Decimal           @db.Decimal(10, 2)
+  currency               String            @default("USD")
+  status                 PaymentStatus     @default(pending)
+  paymentMethod          String?           @map("payment_method")
+  stripePaymentIntentId  String?           @map("stripe_payment_intent_id")
+  invoiceUrl             String?           @map("invoice_url")
+  paidAt                 DateTime?         @map("paid_at")
+  createdAt              DateTime          @default(now()) @map("created_at")
+
+  // Relations
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription UserSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("payment_history")
+}
+
+model Project {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  domain    String
+  ownerId   String    @map("owner_id") @db.Uuid
+  settings  Json?
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  keywords    Keyword[]
+  audits      Audit[]
+  competitors Competitor[]
+  backlinks   Backlink[]
+
+  @@map("projects")
+}
+
+model Keyword {
+  id             String    @id @default(uuid()) @db.Uuid
+  keyword        String
+  projectId      String    @map("project_id") @db.Uuid
+  targetUrl      String?   @map("target_url")
+  searchVolume   Int?      @map("search_volume")
+  difficulty     Float?
+  cpc            Float?
+  currentRanking Int       @default(0) @map("current_ranking")
+  isTracking     Boolean   @default(true) @map("is_tracking")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  rankings Ranking[]
+
+  @@map("keywords")
+}
+
+model Ranking {
+  id        String   @id @default(uuid()) @db.Uuid
+  keywordId String   @map("keyword_id") @db.Uuid
+  position  Int
+  url       String?
+  metadata  Json?
+  date      DateTime @default(now())
+
+  // Relations
+  keyword Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@map("rankings")
+}
+
+model Audit {
+  id          String       @id @default(uuid()) @db.Uuid
+  projectId   String       @map("project_id") @db.Uuid
+  status      AuditStatus  @default(pending)
+  results     Json?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  completedAt DateTime?    @map("completed_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("audits")
+}
+
+model Competitor {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  domain    String
+  name      String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("competitors")
+}
+
+model Backlink {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id") @db.Uuid
+  sourceDomain  String    @map("source_domain")
+  targetUrl     String    @map("target_url")
+  anchorText    String?   @map("anchor_text")
+  linkType      LinkType? @map("link_type")
+  authorityScore Int?     @map("authority_score")
+  isActive      Boolean   @default(true) @map("is_active")
+  discoveredAt  DateTime  @default(now()) @map("discovered_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("backlinks")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType?
+  title     String
+  message   String?          @db.Text
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
