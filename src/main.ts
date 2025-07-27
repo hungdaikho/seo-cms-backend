@@ -8,7 +8,7 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: true, // Allow all origins
     credentials: true,
   });
 
@@ -80,6 +80,10 @@ For API support, please contact: support@ranktackerpro.com
     .addTag('Projects', 'SEO project management and organization')
     .addTag('Keywords', 'Keyword tracking and ranking management')
     .addTag('Audits', 'SEO website audits and analysis')
+    .addTag('Competitors', 'Competitor management and tracking')
+    .addTag('Rankings', 'Keyword ranking history and analytics')
+    .addTag('Notifications', 'User notification management')
+    .addTag('Backlinks', 'Backlink profile and analytics')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

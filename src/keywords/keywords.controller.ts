@@ -10,6 +10,7 @@ import {
     UseGuards,
     Request,
     ParseIntPipe,
+    ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { KeywordsService } from './keywords.service';
@@ -30,7 +31,7 @@ export class KeywordsController {
     @ApiResponse({ status: 403, description: 'Keyword limit reached' })
     async createKeyword(
         @Request() req,
-        @Param('projectId') projectId: string,
+        @Param('projectId', ParseUUIDPipe) projectId: string,
         @Body() createKeywordDto: CreateKeywordDto,
     ) {
         return this.keywordsService.createKeyword(req.user.id, projectId, createKeywordDto);
@@ -42,7 +43,7 @@ export class KeywordsController {
     @ApiResponse({ status: 403, description: 'Keyword limit exceeded' })
     async bulkCreateKeywords(
         @Request() req,
-        @Param('projectId') projectId: string,
+        @Param('projectId', ParseUUIDPipe) projectId: string,
         @Body() bulkCreateDto: BulkCreateKeywordsDto,
     ) {
         return this.keywordsService.bulkCreateKeywords(req.user.id, projectId, bulkCreateDto);
@@ -53,7 +54,7 @@ export class KeywordsController {
     @ApiResponse({ status: 200, description: 'Keywords retrieved successfully' })
     async getProjectKeywords(
         @Request() req,
-        @Param('projectId') projectId: string,
+        @Param('projectId', ParseUUIDPipe) projectId: string,
         @Query() paginationDto: PaginationDto,
     ) {
         return this.keywordsService.getProjectKeywords(req.user.id, projectId, paginationDto);
@@ -73,7 +74,7 @@ export class KeywordController {
     @ApiResponse({ status: 404, description: 'Keyword not found' })
     async updateKeyword(
         @Request() req,
-        @Param('id') keywordId: string,
+        @Param('id', ParseUUIDPipe) keywordId: string,
         @Body() updateKeywordDto: UpdateKeywordDto,
     ) {
         return this.keywordsService.updateKeyword(req.user.id, keywordId, updateKeywordDto);
@@ -83,7 +84,7 @@ export class KeywordController {
     @ApiOperation({ summary: 'Delete keyword' })
     @ApiResponse({ status: 200, description: 'Keyword deleted successfully' })
     @ApiResponse({ status: 404, description: 'Keyword not found' })
-    async deleteKeyword(@Request() req, @Param('id') keywordId: string) {
+    async deleteKeyword(@Request() req, @Param('id', ParseUUIDPipe) keywordId: string) {
         return this.keywordsService.deleteKeyword(req.user.id, keywordId);
     }
 
@@ -92,7 +93,7 @@ export class KeywordController {
     @ApiResponse({ status: 200, description: 'Ranking history retrieved successfully' })
     async getKeywordRankings(
         @Request() req,
-        @Param('id') keywordId: string,
+        @Param('id', ParseUUIDPipe) keywordId: string,
         @Query('days', ParseIntPipe) days = 30,
     ) {
         return this.keywordsService.getKeywordRankings(req.user.id, keywordId, days);

@@ -8,6 +8,7 @@ import {
     Query,
     UseGuards,
     Request,
+    ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuditsService } from './audits.service';
@@ -28,7 +29,7 @@ export class AuditsController {
     @ApiResponse({ status: 403, description: 'Audit limit reached' })
     async createAudit(
         @Request() req,
-        @Param('projectId') projectId: string,
+        @Param('projectId', ParseUUIDPipe) projectId: string,
         @Body() createAuditDto: CreateAuditDto,
     ) {
         return this.auditsService.createAudit(req.user.id, projectId, createAuditDto);
@@ -39,7 +40,7 @@ export class AuditsController {
     @ApiResponse({ status: 200, description: 'Audits retrieved successfully' })
     async getProjectAudits(
         @Request() req,
-        @Param('projectId') projectId: string,
+        @Param('projectId', ParseUUIDPipe) projectId: string,
         @Query() paginationDto: PaginationDto,
     ) {
         return this.auditsService.getProjectAudits(req.user.id, projectId, paginationDto);
@@ -48,7 +49,7 @@ export class AuditsController {
     @Get('summary')
     @ApiOperation({ summary: 'Get audit summary for project' })
     @ApiResponse({ status: 200, description: 'Audit summary retrieved successfully' })
-    async getAuditSummary(@Request() req, @Param('projectId') projectId: string) {
+    async getAuditSummary(@Request() req, @Param('projectId', ParseUUIDPipe) projectId: string) {
         return this.auditsService.getAuditSummary(req.user.id, projectId);
     }
 }
@@ -64,7 +65,7 @@ export class AuditController {
     @ApiOperation({ summary: 'Get audit by ID' })
     @ApiResponse({ status: 200, description: 'Audit retrieved successfully' })
     @ApiResponse({ status: 404, description: 'Audit not found' })
-    async getAuditById(@Request() req, @Param('id') auditId: string) {
+    async getAuditById(@Request() req, @Param('id', ParseUUIDPipe) auditId: string) {
         return this.auditsService.getAuditById(req.user.id, auditId);
     }
 
@@ -72,7 +73,7 @@ export class AuditController {
     @ApiOperation({ summary: 'Get audit results' })
     @ApiResponse({ status: 200, description: 'Audit results retrieved successfully' })
     @ApiResponse({ status: 400, description: 'Audit not completed' })
-    async getAuditResults(@Request() req, @Param('id') auditId: string) {
+    async getAuditResults(@Request() req, @Param('id', ParseUUIDPipe) auditId: string) {
         return this.auditsService.getAuditResults(req.user.id, auditId);
     }
 
@@ -80,7 +81,7 @@ export class AuditController {
     @ApiOperation({ summary: 'Delete audit' })
     @ApiResponse({ status: 200, description: 'Audit deleted successfully' })
     @ApiResponse({ status: 400, description: 'Cannot delete running audit' })
-    async deleteAudit(@Request() req, @Param('id') auditId: string) {
+    async deleteAudit(@Request() req, @Param('id', ParseUUIDPipe) auditId: string) {
         return this.auditsService.deleteAudit(req.user.id, auditId);
     }
 }

@@ -9,6 +9,13 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ProjectsModule } from './projects/projects.module';
 import { KeywordsModule } from './keywords/keywords.module';
 import { AuditsModule } from './audits/audits.module';
+import { CompetitorsModule } from './competitors/competitors.module';
+import { RankingsModule } from './rankings/rankings.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { BacklinksModule } from './backlinks/backlinks.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { ReportsModule } from './reports/reports.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -22,6 +29,13 @@ import { AuditsModule } from './audits/audits.module';
     ProjectsModule,
     KeywordsModule,
     AuditsModule,
+    CompetitorsModule,
+    RankingsModule,
+    NotificationsModule,
+    BacklinksModule,
+    IntegrationsModule,
+    ReportsModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

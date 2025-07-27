@@ -9,6 +9,7 @@ import {
     Query,
     UseGuards,
     Request,
+    ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
@@ -42,7 +43,7 @@ export class ProjectsController {
     @ApiOperation({ summary: 'Get project by ID' })
     @ApiResponse({ status: 200, description: 'Project retrieved successfully' })
     @ApiResponse({ status: 404, description: 'Project not found' })
-    async getProjectById(@Request() req, @Param('id') projectId: string) {
+    async getProjectById(@Request() req, @Param('id', ParseUUIDPipe) projectId: string) {
         return this.projectsService.getProjectById(req.user.id, projectId);
     }
 
@@ -52,7 +53,7 @@ export class ProjectsController {
     @ApiResponse({ status: 404, description: 'Project not found' })
     async updateProject(
         @Request() req,
-        @Param('id') projectId: string,
+        @Param('id', ParseUUIDPipe) projectId: string,
         @Body() updateProjectDto: UpdateProjectDto,
     ) {
         return this.projectsService.updateProject(req.user.id, projectId, updateProjectDto);
@@ -62,14 +63,14 @@ export class ProjectsController {
     @ApiOperation({ summary: 'Delete project' })
     @ApiResponse({ status: 200, description: 'Project deleted successfully' })
     @ApiResponse({ status: 404, description: 'Project not found' })
-    async deleteProject(@Request() req, @Param('id') projectId: string) {
+    async deleteProject(@Request() req, @Param('id', ParseUUIDPipe) projectId: string) {
         return this.projectsService.deleteProject(req.user.id, projectId);
     }
 
     @Get(':id/stats')
     @ApiOperation({ summary: 'Get project statistics' })
     @ApiResponse({ status: 200, description: 'Project stats retrieved successfully' })
-    async getProjectStats(@Request() req, @Param('id') projectId: string) {
+    async getProjectStats(@Request() req, @Param('id', ParseUUIDPipe) projectId: string) {
         return this.projectsService.getProjectStats(req.user.id, projectId);
     }
 }

@@ -8,6 +8,7 @@ import {
     Param,
     Query,
     ParseIntPipe,
+    ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -43,7 +44,7 @@ export class UsersController {
     }
 
     @Get('notifications')
-    @ApiOperation({ summary: 'Get user notifications' })
+    @ApiOperation({ summary: 'Get user notifications (deprecated - use /notifications endpoint)' })
     @ApiResponse({ status: 200, description: 'Notifications retrieved successfully' })
     async getNotifications(
         @Request() req,
@@ -53,9 +54,9 @@ export class UsersController {
     }
 
     @Patch('notifications/:id/read')
-    @ApiOperation({ summary: 'Mark notification as read' })
+    @ApiOperation({ summary: 'Mark notification as read (deprecated - use /notifications endpoint)' })
     @ApiResponse({ status: 200, description: 'Notification marked as read' })
-    async markNotificationRead(@Request() req, @Param('id') notificationId: string) {
+    async markNotificationRead(@Request() req, @Param('id', ParseUUIDPipe) notificationId: string) {
         return this.usersService.markNotificationRead(req.user.id, notificationId);
     }
 }

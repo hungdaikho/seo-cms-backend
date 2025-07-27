@@ -154,3 +154,83 @@ export class SubscriptionPlanResponseDto {
     })
     limits: object;
 }
+
+export class CompetitorResponseDto {
+    @ApiProperty({ example: 'uuid-string' })
+    id: string;
+
+    @ApiProperty({ example: 'competitor.com' })
+    domain: string;
+
+    @ApiProperty({ example: 'Main Competitor' })
+    name: string;
+
+    @ApiProperty({ example: true })
+    isActive: boolean;
+
+    @ApiProperty()
+    createdAt: Date;
+}
+
+export class RankingResponseDto {
+    @ApiProperty({ example: 'uuid-string' })
+    id: string;
+
+    @ApiProperty({ example: 5 })
+    position: number;
+
+    @ApiProperty({ example: 'https://example.com/page' })
+    url: string;
+
+    @ApiProperty()
+    metadata: object;
+
+    @ApiProperty()
+    date: Date;
+}
+
+export class NotificationResponseDto {
+    @ApiProperty({ example: 'uuid-string' })
+    id: string;
+
+    @ApiProperty({ example: 'ranking_change' })
+    type: string;
+
+    @ApiProperty({ example: 'Keyword ranking improved' })
+    title: string;
+
+    @ApiProperty({ example: 'Your keyword moved from position 15 to 8' })
+    message: string;
+
+    @ApiProperty({ example: false })
+    isRead: boolean;
+
+    @ApiProperty()
+    createdAt: Date;
+}
+
+export class BacklinkResponseDto {
+    @ApiProperty({ example: 'uuid-string' })
+    id: string;
+
+    @ApiProperty({ example: 'authority-site.com' })
+    sourceDomain: string;
+
+    @ApiProperty({ example: 'https://example.com/target-page' })
+    targetUrl: string;
+
+    @ApiProperty({ example: 'best seo tools' })
+    anchorText: string;
+
+    @ApiProperty({ example: 'follow' })
+    linkType: string;
+
+    @ApiProperty({ example: 85 })
+    authorityScore: number;
+
+    @ApiProperty({ example: true })
+    isActive: boolean;
+
+    @ApiProperty()
+    discoveredAt: Date;
+}
