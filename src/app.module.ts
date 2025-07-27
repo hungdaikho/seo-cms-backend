@@ -16,6 +16,11 @@ import { BacklinksModule } from './backlinks/backlinks.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { ReportsModule } from './reports/reports.module';
 import { AiModule } from './ai/ai.module';
+// New SEO modules
+import { OrganicResearchModule } from './organic-research/organic-research.module';
+import { DomainOverviewModule } from './domain-overview/domain-overview.module';
+import { TopicResearchModule } from './topic-research/topic-research.module';
+import { ContentModule } from './content/content.module';
 
 @Module({
   imports: [
@@ -36,6 +41,11 @@ import { AiModule } from './ai/ai.module';
     IntegrationsModule,
     ReportsModule,
     AiModule,
+    // New SEO modules
+    OrganicResearchModule,
+    DomainOverviewModule,
+    TopicResearchModule,
+    ContentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

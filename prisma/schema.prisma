@@ -97,6 +97,19 @@ model User {
   integrations      Integration[]
   aiRequests        AIRequest[]
   reports           Report[]
+  
+  // Content Management Relations
+  content           Content[]
+  contentCategories ContentCategory[]
+  contentCalendarItems ContentCalendarItem[]
+  contentTemplates  ContentTemplate[]
+  contentComments   ContentComment[]
+  contentApprovals  ContentApproval[]
+
+  // AI Relations
+  aiTemplates       AITemplate[]
+  aiWorkflows       AIWorkflow[]
+  aiUsageTracking   AIUsageTracking[]
 
   @@map("users")
 }
@@ -207,6 +220,17 @@ model Project {
   reports              Report[]
   contentCalendar      ContentCalendar[]
   aiRequests           AIRequest[]
+  
+  // Content Management Relations
+  content              Content[]
+  contentCategories    ContentCategory[]
+  contentCalendarItems ContentCalendarItem[]
+  contentTemplates     ContentTemplate[]
+
+  // AI Relations
+  aiTemplates          AITemplate[]
+  aiWorkflows          AIWorkflow[]
+  aiUsageTracking      AIUsageTracking[]
 
   @@map("projects")
 }
@@ -393,6 +417,8 @@ model AIRequest {
   parameters  Json
   response    Json?
   status      String    @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  tokens      Int?      // Number of tokens used
+  cost        Decimal?  // Cost incurred for this request
   completedAt DateTime? @map("completed_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
@@ -401,6 +427,100 @@ model AIRequest {
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("ai_requests")
+}
+
+model AITool {
+  id              String      @id @default(uuid()) @db.Uuid
+  name            String
+  description     String
+  category        String      // 'content', 'seo', 'analysis', 'research', 'optimization'
+  icon            String
+  isActive        Boolean     @default(true) @map("is_active")
+  isPremium       Boolean     @default(false) @map("is_premium")
+  usageCount      Int         @default(0) @map("usage_count")
+  maxUsage        Int?        @map("max_usage")
+  features        String[]    @default([])
+  costPerRequest  Decimal?    @map("cost_per_request")
+  averageTokens   Int?        @map("average_tokens")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  templates     AITemplate[]
+  workflowSteps AIWorkflowStep[]
+
+  @@map("ai_tools")
+}
+
+model AITemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  toolId      String   @map("tool_id") @db.Uuid
+  name        String
+  description String
+  parameters  Json
+  isShared    Boolean  @default(false) @map("is_shared")
+  createdBy   String   @map("created_by") @db.Uuid
+  usageCount  Int      @default(0) @map("usage_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tool    AITool  @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("ai_templates")
+}
+
+model AIWorkflow {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  name        String
+  description String
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  project Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User             @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  steps   AIWorkflowStep[]
+
+  @@map("ai_workflows")
+}
+
+model AIWorkflowStep {
+  id         String @id @default(uuid()) @db.Uuid
+  workflowId String @map("workflow_id") @db.Uuid
+  toolId     String @map("tool_id") @db.Uuid
+  order      Int
+  parameters Json
+  dependsOn  String[] @default([]) @map("depends_on")
+
+  // Relations
+  workflow AIWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tool     AITool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@map("ai_workflow_steps")
+}
+
+model AIUsageTracking {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  projectId String?  @map("project_id") @db.Uuid
+  toolId    String   @map("tool_id")
+  requestId String   @map("request_id") @db.Uuid
+  tokens    Int
+  cost      Decimal
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ai_usage_tracking")
 }
 
 // Custom reports
@@ -446,4 +566,191 @@ model ContentCalendar {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("content_calendar")
+}
+
+// =============================
+// CONTENT MANAGEMENT MODELS
+// =============================
+
+enum ContentStatus {
+  draft
+  published
+  scheduled
+  archived
+}
+
+enum ContentType {
+  post
+  page
+  landing_page
+  product
+}
+
+enum ContentPriority {
+  high
+  medium
+  low
+}
+
+enum CalendarItemType {
+  blog_post
+  social_media
+  email
+  landing_page
+  video
+  infographic
+}
+
+enum CalendarItemStatus {
+  planned
+  in_progress
+  review
+  published
+  archived
+}
+
+// Main content items
+model Content {
+  id              String        @id @default(uuid()) @db.Uuid
+  title           String
+  slug            String
+  content         String        @db.Text
+  excerpt         String?       @db.Text
+  status          ContentStatus @default(draft)
+  type            ContentType   @default(post)
+  categories      String[]      @default([])
+  tags            String[]      @default([])
+  metaTitle       String?       @map("meta_title")
+  metaDescription String?       @map("meta_description") @db.Text
+  focusKeyword    String?       @map("focus_keyword")
+  seoScore        Int?          @map("seo_score")
+  readabilityScore Int?         @map("readability_score")
+  publishedAt     DateTime?     @map("published_at")
+  featuredImage   String?       @map("featured_image")
+  wordCount       Int           @default(0) @map("word_count")
+  readingTime     Int           @default(0) @map("reading_time")
+  projectId       String        @map("project_id") @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments  ContentComment[]
+  approvals ContentApproval[]
+
+  @@unique([projectId, slug])
+  @@map("content")
+}
+
+// Content categories
+model ContentCategory {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String
+  description String?   @db.Text
+  parentId    String?   @map("parent_id") @db.Uuid
+  color       String?
+  projectId   String    @map("project_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  project  Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   ContentCategory?   @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children ContentCategory[]  @relation("CategoryHierarchy")
+
+  @@unique([projectId, slug])
+  @@map("content_categories")
+}
+
+// Content calendar items for planning
+model ContentCalendarItem {
+  id                   String              @id @default(uuid()) @db.Uuid
+  title                String
+  type                 CalendarItemType
+  status               CalendarItemStatus  @default(planned)
+  priority             ContentPriority     @default(medium)
+  publishDate          DateTime            @map("publish_date")
+  targetKeywords       String[]            @map("target_keywords") @default([])
+  estimatedWordCount   Int?                @map("estimated_word_count")
+  actualWordCount      Int?                @map("actual_word_count")
+  brief                String              @db.Text
+  notes                String?             @db.Text
+  tags                 String[]            @default([])
+  seoScore             Int?                @map("seo_score")
+  readabilityScore     Int?                @map("readability_score")
+  projectId            String              @map("project_id") @db.Uuid
+  userId               String              @map("user_id") @db.Uuid
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("content_calendar_items")
+}
+
+// Content templates
+model ContentTemplate {
+  id              String  @id @default(uuid()) @db.Uuid
+  name            String
+  type            String  // 'blog-post', 'landing-page', 'email', 'social-media'
+  template        String  @db.Text
+  variables       Json    @default("[]")
+  seoGuidelines   String[] @map("seo_guidelines") @default([])
+  wordCountRange  Json?   @map("word_count_range")
+  projectId       String  @map("project_id") @db.Uuid
+  userId          String  @map("user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("content_templates")
+}
+
+// Content comments for collaboration
+model ContentComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  contentId String   @map("content_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  parentId  String?  @map("parent_id") @db.Uuid
+  comment   String   @db.Text
+  position  Json?    // { start: number, end: number }
+  status    String   @default("open") // 'open', 'resolved'
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  content Content           @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  ContentComment?   @relation("CommentReplies", fields: [parentId], references: [id])
+  replies ContentComment[]  @relation("CommentReplies")
+
+  @@map("content_comments")
+}
+
+// Content approval workflow
+model ContentApproval {
+  id            String   @id @default(uuid()) @db.Uuid
+  contentId     String   @map("content_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  status        String   // 'pending', 'approved', 'rejected'
+  feedback      String?  @db.Text
+  approverNotes String?  @map("approver_notes") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("content_approvals")
 }
