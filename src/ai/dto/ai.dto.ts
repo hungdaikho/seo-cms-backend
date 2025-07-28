@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsEnum, IsNumber, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsEnum, IsNumber, IsUUID, IsNotEmpty, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum AIRequestType {
@@ -142,6 +142,8 @@ export class AIRequestDto {
     projectId?: string;
 
     @ApiProperty({ description: 'Request parameters' })
+    @IsNotEmpty()
+    @IsObject()
     parameters: any;
 }
 
