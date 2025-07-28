@@ -52,6 +52,17 @@ export class AuditsController {
     async getAuditSummary(@Request() req, @Param('projectId', ParseUUIDPipe) projectId: string) {
         return this.auditsService.getAuditSummary(req.user.id, projectId);
     }
+
+    @Get('history')
+    @ApiOperation({ summary: 'Get audit history for project' })
+    @ApiResponse({ status: 200, description: 'Audit history retrieved successfully' })
+    async getAuditHistory(
+        @Request() req,
+        @Param('projectId', ParseUUIDPipe) projectId: string,
+        @Query() paginationDto: PaginationDto,
+    ) {
+        return this.auditsService.getAuditHistory(req.user.id, projectId, paginationDto);
+    }
 }
 
 @ApiTags('Audits')
@@ -67,6 +78,23 @@ export class AuditController {
     @ApiResponse({ status: 404, description: 'Audit not found' })
     async getAuditById(@Request() req, @Param('id', ParseUUIDPipe) auditId: string) {
         return this.auditsService.getAuditById(req.user.id, auditId);
+    }
+
+    @Get(':id/status')
+    @ApiOperation({ summary: 'Get audit status and progress' })
+    @ApiResponse({ status: 200, description: 'Audit status retrieved successfully' })
+    @ApiResponse({ status: 404, description: 'Audit not found' })
+    async getAuditStatus(@Request() req, @Param('id', ParseUUIDPipe) auditId: string) {
+        const audit = await this.auditsService.getAuditById(req.user.id, auditId);
+        const results = audit.results as any;
+        return {
+            id: audit.id,
+            status: audit.status,
+            created_at: audit.createdAt,
+            completed_at: audit.completedAt,
+            progress: results?.progress || 0,
+            config: results?.config || null,
+        };
     }
 
     @Get(':id/results')
