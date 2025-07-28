@@ -161,10 +161,13 @@ export class AuditProcessingService {
 
     private async runComprehensiveAudit(config: AuditConfig, auditId: string): Promise<AuditResults> {
         this.logger.log('Starting comprehensive audit analysis...');
+        this.logger.log(`Audit config pages:`, config.pages);
 
         const urls = config.pages && config.pages.length > 0
             ? config.pages
             : await this.discoverUrls(config.pages[0] || '', config.max_depth);
+
+        this.logger.log(`URLs to analyze:`, urls);
 
         const pageResults: PageAnalysisResult[] = [];
 

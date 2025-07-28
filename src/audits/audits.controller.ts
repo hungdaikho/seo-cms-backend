@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuditsService } from './audits.service';
-import { CreateAuditDto } from './dto/audit.dto';
+import { CreateAuditDto, AuditType, StartComprehensiveAuditDto } from './dto/audit.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -32,6 +32,39 @@ export class AuditsController {
         @Param('projectId', ParseUUIDPipe) projectId: string,
         @Body() createAuditDto: CreateAuditDto,
     ) {
+        return this.auditsService.createAudit(req.user.id, projectId, createAuditDto);
+    }
+
+    @Post('comprehensive')
+    @ApiOperation({ summary: 'Start comprehensive SEO audit for project' })
+    @ApiResponse({ status: 201, description: 'Comprehensive audit started successfully' })
+    @ApiResponse({ status: 403, description: 'Audit limit reached' })
+    async startComprehensiveAudit(
+        @Request() req,
+        @Param('projectId', ParseUUIDPipe) projectId: string,
+        @Body() body: StartComprehensiveAuditDto,
+    ) {
+        // Convert client parameters to internal DTO format
+        const createAuditDto: CreateAuditDto = {
+            audit_type: body.options?.auditType === 'full' ? AuditType.FULL :
+                body.options?.auditType === 'technical' ? AuditType.TECHNICAL :
+                    body.options?.auditType === 'content' ? AuditType.CONTENT :
+                        body.options?.auditType === 'performance' ? AuditType.PERFORMANCE :
+                            AuditType.FULL,
+            pages: [body.url],
+            max_depth: body.options?.settings?.crawlDepth || 1,
+            check_images: body.options?.settings?.includeImages ?? true,
+            include_mobile: body.options?.settings?.checkMobileFriendly ?? true,
+            analyze_performance: body.options?.settings?.analyzePageSpeed ?? true,
+            check_accessibility: true,
+            check_seo: true,
+            check_content: true,
+            check_technical: true,
+            validate_html: true,
+            check_links: true,
+            check_meta: true,
+        };
+
         return this.auditsService.createAudit(req.user.id, projectId, createAuditDto);
     }
 

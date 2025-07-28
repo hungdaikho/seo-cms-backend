@@ -1,14 +1,16 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateAuditDto } from './dto/audit.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
-// import { AuditProcessingService, AuditConfig } from './audit-processing.service';
+import { AuditProcessingService, AuditConfig } from './audit-processing.service';
 
 @Injectable()
 export class AuditsService {
+    private readonly logger = new Logger(AuditsService.name);
+
     constructor(
         private readonly databaseService: DatabaseService,
-        // private readonly auditProcessingService: AuditProcessingService,
+        private readonly auditProcessingService: AuditProcessingService,
     ) { }
 
     async createAudit(userId: string, projectId: string, createAuditDto: CreateAuditDto) {
@@ -29,7 +31,7 @@ export class AuditsService {
         await this.checkAuditLimit(userId);
 
         // Prepare audit configuration
-        const auditConfig = {
+        const auditConfig: AuditConfig = {
             include_mobile: createAuditDto.include_mobile || false,
             check_accessibility: createAuditDto.check_accessibility || false,
             analyze_performance: createAuditDto.analyze_performance || false,
@@ -63,7 +65,8 @@ export class AuditsService {
 
         // Queue audit job for background processing
         setTimeout(() => {
-            // this.auditProcessingService.processAudit(audit.id, auditConfig);
+            this.logger.log(`Processing audit ${audit.id} with config:`, auditConfig);
+            this.auditProcessingService.processAudit(audit.id, auditConfig);
         }, 1000); // Start processing after 1 second
 
         return {
