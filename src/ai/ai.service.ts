@@ -32,6 +32,8 @@ import {
     LongTailKeywordsDto,
     QuestionBasedKeywordsDto,
     SeasonalKeywordTrendsDto,
+    KeywordMagicToolDto,
+    KeywordSuggestionsDto,
     // AI Analytics DTOs
     ContentPerformancePredictionDto,
     AIUsageAnalyticsDto,
@@ -51,6 +53,8 @@ import {
     LongTailKeywordsResponse,
     QuestionBasedKeywordsResponse,
     SeasonalKeywordTrendsResponse,
+    KeywordMagicToolResponse,
+    KeywordSuggestionsResponse,
     ContentPerformancePredictionResponse,
     AIUsageAnalyticsResponse,
     AIToolUsageResponse,
@@ -64,9 +68,72 @@ export class AiService {
     private readonly openai: OpenAI;
 
     constructor(private readonly db: DatabaseService) {
+        if (!process.env.OPENAI_API_KEY) {
+            console.error('OPENAI_API_KEY is not set in environment variables');
+            throw new Error('OPENAI_API_KEY is required');
+        }
+
         this.openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
         });
+
+        console.log('OpenAI client initialized successfully');
+    }
+
+    /**
+     * Helper method to safely parse OpenAI response content
+     */
+    private safeParseOpenAIResponse(content: string): any {
+        try {
+            if (!content || content.trim() === '') {
+                console.warn('Empty content received from OpenAI');
+                return {};
+            }
+
+            // Remove code block markers if present
+            let cleanedContent = content
+                .replace(/```json\s*/gi, '')
+                .replace(/```\s*/gi, '')
+                .replace(/^```/gm, '')
+                .replace(/```$/gm, '')
+                .trim();
+
+            // Remove any leading/trailing whitespace and newlines
+            cleanedContent = cleanedContent.replace(/^\s+|\s+$/g, '');
+
+            // Try to find JSON content if wrapped in other text
+            const jsonMatch = cleanedContent.match(/\{.*\}/s);
+            if (jsonMatch) {
+                cleanedContent = jsonMatch[0];
+            }
+
+            // Log for debugging
+            console.log('Original content length:', content.length);
+            console.log('Cleaned content preview:', cleanedContent.substring(0, 200) + '...');
+
+            const parsed = JSON.parse(cleanedContent);
+            console.log('Successfully parsed JSON response');
+            return parsed;
+        } catch (error) {
+            console.error('JSON parsing failed:', error.message);
+            console.error('Content that failed to parse:', content.substring(0, 500) + '...');
+
+            // Try to extract JSON from text
+            try {
+                const jsonRegex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+                const matches = content.match(jsonRegex);
+                if (matches && matches.length > 0) {
+                    const parsed = JSON.parse(matches[0]);
+                    console.log('Successfully extracted and parsed JSON from text');
+                    return parsed;
+                }
+            } catch (extractError) {
+                console.error('JSON extraction also failed:', extractError.message);
+            }
+
+            // Return empty object as fallback
+            return {};
+        }
     }
 
     async processAIRequest(userId: string, type: AIRequestType, parameters: any, projectId?: string) {
@@ -156,6 +223,14 @@ export class AiService {
                     result = await this.analyzeSeasonalKeywordTrends(parameters as SeasonalKeywordTrendsDto);
                     break;
 
+                case AIRequestType.KEYWORD_MAGIC_TOOL:
+                    result = await this.keywordMagicTool(parameters as KeywordMagicToolDto);
+                    break;
+
+                case AIRequestType.KEYWORD_SUGGESTIONS:
+                    result = await this.generateKeywordSuggestions(parameters as KeywordSuggestionsDto);
+                    break;
+
                 // Analytics
                 case AIRequestType.CONTENT_PERFORMANCE_PREDICTION:
                     result = await this.predictContentPerformance(parameters as ContentPerformancePredictionDto);
@@ -217,13 +292,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
 
             // Transform and validate the response
             const keywords: KeywordSuggestion[] = response.keywords?.map((k: any) => ({
@@ -240,7 +315,8 @@ export class AiService {
                 searchIntent: response.searchIntent || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for keyword research');
+            console.error('Error in generateKeywordResearch:', error);
+            throw new BadRequestException('Failed to parse AI response for keyword research: ' + error.message);
         }
     }
 
@@ -272,13 +348,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.3,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
 
             return {
                 optimizedContent: response.optimizedContent || dto.content,
@@ -287,7 +363,8 @@ export class AiService {
                 keywordDensity: response.keywordDensity || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for content optimization');
+            console.error('Error in optimizeContent:', error);
+            throw new BadRequestException('Failed to parse AI response for content optimization: ' + error.message);
         }
     }
 
@@ -317,13 +394,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.5,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
 
             return {
                 title: response.title || '',
@@ -333,7 +410,8 @@ export class AiService {
                 alternativeDescriptions: response.alternativeDescriptions || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for meta tag generation');
+            console.error('Error in generateMetaTags:', error);
+            throw new BadRequestException('Failed to parse AI response for meta tag generation: ' + error.message);
         }
     }
 
@@ -368,13 +446,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.8,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
 
             const ideas: ContentIdea[] = response.ideas?.map((idea: any) => ({
                 title: idea.title,
@@ -391,7 +469,8 @@ export class AiService {
                 seasonalTopics: response.seasonalTopics || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for content ideas');
+            console.error('Error in generateContentIdeas:', error);
+            throw new BadRequestException('Failed to parse AI response for content ideas: ' + error.message);
         }
     }
 
@@ -422,13 +501,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.4,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
 
             return {
                 strengths: response.strengths || [],
@@ -438,7 +517,8 @@ export class AiService {
                 recommendations: response.recommendations || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for competitor analysis');
+            console.error('Error in analyzeCompetitor:', error);
+            throw new BadRequestException('Failed to parse AI response for competitor analysis: ' + error.message);
         }
     }
 
@@ -468,13 +548,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.2,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
 
             return {
                 overallScore: response.overallScore || 50,
@@ -483,7 +563,8 @@ export class AiService {
                 technicalIssues: response.technicalIssues || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for SEO audit');
+            console.error('Error in performSEOAudit:', error);
+            throw new BadRequestException('Failed to parse AI response for SEO audit: ' + error.message);
         }
     }
 
@@ -555,20 +636,21 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
             return {
                 outline: response.outline || { sections: [] },
                 suggestedImages: response.suggestedImages || [],
                 internalLinkOpportunities: response.internalLinkOpportunities || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for blog outline generation');
+            console.error('Error in generateBlogOutline:', error);
+            throw new BadRequestException('Failed to parse AI response for blog outline generation: ' + error.message);
         }
     }
 
@@ -601,20 +683,21 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.8,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
             return {
                 descriptions: response.descriptions || [],
                 bulletPoints: response.bulletPoints || [],
                 callToActions: response.callToActions || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for product description generation');
+            console.error('Error in generateProductDescription:', error);
+            throw new BadRequestException('Failed to parse AI response for product description generation: ' + error.message);
         }
     }
 
@@ -652,20 +735,21 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.9,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
             return {
                 content: response.content || '',
                 hashtags: response.hashtags || [],
                 alternativeVersions: response.alternativeVersions || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for social media content generation');
+            console.error('Error in generateSocialMediaContent:', error);
+            throw new BadRequestException('Failed to parse AI response for social media content generation: ' + error.message);
         }
     }
 
@@ -696,13 +780,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.6,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
             const originalWords = dto.content.split(/\s+/).length;
             const rewrittenWords = response.rewrittenContent?.split(/\s+/).length || originalWords;
 
@@ -713,7 +797,7 @@ export class AiService {
                 wordCountChange: rewrittenWords - originalWords,
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for content rewriting');
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for content rewriting: ' + error.message);
         }
     }
 
@@ -743,13 +827,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
             const originalWords = dto.content.split(/\s+/).length;
             const expandedWords = response.expandedContent?.split(/\s+/).length || originalWords;
 
@@ -760,7 +844,7 @@ export class AiService {
                 wordCountIncrease: expandedWords - originalWords,
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for content expansion');
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for content expansion: ' + error.message);
         }
     }
 
@@ -796,13 +880,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.4,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
             return {
                 keyword: dto.keyword,
                 topPerformingContent: response.topPerformingContent || [],
@@ -810,52 +894,72 @@ export class AiService {
                 recommendations: response.recommendations || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for competitor content analysis');
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for competitor content analysis: ' + error.message);
         }
     }
 
     async generateContentOptimizationSuggestions(dto: ContentOptimizationSuggestionsDto): Promise<ContentOptimizationSuggestionsResponse> {
         const prompt = `
-    Analyze content and provide optimization suggestions for:
-    
-    Content: "${dto.content}"
-    Target Keywords: ${dto.targetKeywords.join(', ')}
-    Target Audience: ${dto.targetAudience}
-    Current URL: ${dto.currentUrl || 'Not specified'}
-    
-    Provide detailed suggestions for:
-    1. Keyword density optimization
-    2. Readability improvements
-    3. Content structure enhancements
-    4. Internal linking opportunities
-    5. User experience improvements
-    6. SEO technical optimizations
-    
-    For each suggestion, include:
-    - Current state analysis
-    - Recommended improvements
-    - Implementation priority
-    - Expected impact
-    
-    Format the response as a structured JSON object.
-    `;
+Analyze content and provide optimization suggestions for:
+
+Content: "${dto.content}"
+Target Keywords: ${dto.targetKeywords.join(', ')}
+Target Audience: ${dto.targetAudience}
+Current URL: ${dto.currentUrl || 'Not specified'}
+
+Provide detailed suggestions for:
+1. Keyword density optimization
+2. Readability improvements
+3. Content structure enhancements
+4. Internal linking opportunities
+5. User experience improvements
+6. SEO technical optimizations
+
+For each suggestion, include:
+- Current state analysis
+- Recommended improvements
+- Implementation priority
+- Expected impact
+
+**Important**: Ensure the response is always formatted as a structured JSON object with the following fields:
+{
+  "keyword_density_optimization": { ... },
+  "readability_improvements": { ... },
+  "content_structure_enhancements": { ... },
+  "internal_linking_opportunities": { ... },
+  "user_experience_improvements": { ... },
+  "seo_technical_optimizations": { ... }
+}
+
+Even if no data is available for a section, include the field with a value of null.
+Format the response strictly in JSON format.
+`;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.3,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            // Kiểm tra dữ liệu trả về
+            if (!completion.choices || !completion.choices[0].message) {
+                throw new BadRequestException('No valid response from AI');
+            }
+
+            // Sử dụng helper method để parse an toàn
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}');
+
+            // Trả về kết quả đã được xử lý
             return {
-                keywordDensity: response.keywordDensity || [],
-                readabilityIssues: response.readabilityIssues || [],
-                structureImprovements: response.structureImprovements || [],
-                internalLinkSuggestions: response.internalLinkSuggestions || [],
+                keywordDensity: response.keyword_density_optimization || {},
+                readabilityIssues: response.readability_improvements || {},
+                structureImprovements: response.content_structure_enhancements || {},
+                internalLinkSuggestions: response.internal_linking_opportunities || {},
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for content optimization suggestions');
+            console.error('Error in generateContentOptimizationSuggestions:', error);
+            throw new BadRequestException('Failed to parse AI response for content optimization suggestions: ' + error.message);
         }
     }
 
@@ -888,19 +992,19 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.2,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
             return {
                 schemaMarkup: response.schemaMarkup || '',
                 implementationInstructions: response.implementationInstructions || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for schema markup generation');
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for schema markup generation: ' + error.message);
         }
     }
 
@@ -940,19 +1044,19 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.6,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
             return {
                 keywords: response.keywords || [],
                 topicClusters: response.topicClusters || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for long-tail keyword generation');
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for long-tail keyword generation: ' + error.message);
         }
     }
 
@@ -987,19 +1091,19 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.6,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
             return {
                 questions: response.questions || [],
                 featuredSnippetOpportunities: response.featuredSnippetOpportunities || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for question-based keyword generation');
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for question-based keyword generation: ' + error.message);
         }
     }
 
@@ -1034,18 +1138,370 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.4,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
             return {
                 trends: response.trends || [],
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for seasonal keyword trend analysis');
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for seasonal keyword trend analysis: ' + error.message);
+        }
+    }
+
+    async keywordMagicTool(dto: KeywordMagicToolDto): Promise<KeywordMagicToolResponse> {
+        const prompt = `
+    Perform comprehensive keyword research using Keyword Magic Tool for:
+    
+    Seed Keyword: "${dto.seedKeyword}"
+    Industry: ${dto.industry || 'General'}
+    Location: ${dto.location || 'US'}
+    Language: ${dto.language || 'en'}
+    Intent Filter: ${dto.intentFilter || 'all'}
+    Difficulty Range: ${dto.minDifficulty || 0}-${dto.maxDifficulty || 100}
+    Volume Range: ${dto.minVolume || 0}${dto.maxVolume ? `-${dto.maxVolume}` : '+'}
+    Target Audience: ${dto.targetAudience || 'General audience'}
+    Content Type: ${dto.contentType || 'General content'}
+    
+    Generate comprehensive keyword research including:
+    
+    1. PRIMARY KEYWORDS (${dto.limitPerCategory || 50} keywords):
+       - High-volume exact and related keywords
+       - Search intent analysis
+       - Competition level
+       - Opportunity score
+       - Trend analysis
+    
+    2. LONG-TAIL KEYWORDS (if enabled: ${dto.includeLongTail}):
+       - 3-5 word variations
+       - Lower competition alternatives
+       - Specific intent targeting
+       
+    3. QUESTION KEYWORDS (if enabled: ${dto.includeQuestions}):
+       - How, what, why, when questions
+       - Featured snippet opportunities
+       - Answer format suggestions
+       
+    4. RELATED TOPICS:
+       - Semantic keyword clusters
+       - Content pillar opportunities
+       - Supporting topics
+       
+    5. KEYWORD CLUSTERS:
+       - Grouped by search intent
+       - Topic-based groupings
+       - Content strategy alignment
+       
+    6. CONTENT SUGGESTIONS:
+       - Content types for each cluster
+       - Estimated word counts
+       - Primary and supporting keywords
+       
+    ${dto.includeCompetitorKeywords && dto.competitorDomains?.length ? `
+    7. COMPETITOR ANALYSIS:
+       - Analyze keywords from: ${dto.competitorDomains.join(', ')}
+       - Keyword gaps identification
+       - Competitive opportunities
+    ` : ''}
+    
+    ${dto.includeSeasonalTrends ? `
+    8. SEASONAL DATA:
+       - Monthly trend patterns
+       - Peak and low seasons
+       - Content calendar alignment
+    ` : ''}
+    
+    For each keyword provide:
+    - Estimated search volume
+    - Keyword difficulty (0-100)
+    - CPC estimate
+    - Search intent classification
+    - Competition level
+    - Opportunity score (0-100)
+    - Trend direction
+    
+    Provide summary statistics:
+    - Total keywords found
+    - Average search volume
+    - Average difficulty
+    - Total estimated traffic
+    - Top search intent
+    - Competition level assessment
+    
+    Format the response as a structured JSON object matching KeywordMagicToolResponse interface.
+    `;
+
+        const completion = await this.openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.5,
+            max_tokens: 4000,
+        });
+
+        try {
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
+
+            return {
+                seedKeyword: dto.seedKeyword,
+                totalKeywords: response.totalKeywords || 0,
+                summary: response.summary || {
+                    avgSearchVolume: 0,
+                    avgDifficulty: 0,
+                    totalEstimatedTraffic: 0,
+                    topIntent: 'informational',
+                    competitionLevel: 'medium'
+                },
+                primaryKeywords: response.primaryKeywords || [],
+                longTailKeywords: response.longTailKeywords || [],
+                questionKeywords: response.questionKeywords || [],
+                relatedTopics: response.relatedTopics || [],
+                competitorAnalysis: response.competitorAnalysis || [],
+                seasonalData: response.seasonalData || [],
+                contentSuggestions: response.contentSuggestions || [],
+                keywordClusters: response.keywordClusters || [],
+                filters: {
+                    location: dto.location || 'US',
+                    language: dto.language || 'en',
+                    intentFilter: dto.intentFilter || 'all',
+                    difficultyRange: `${dto.minDifficulty || 0}-${dto.maxDifficulty || 100}`,
+                    volumeRange: `${dto.minVolume || 0}${dto.maxVolume ? `-${dto.maxVolume}` : '+'}`
+                }
+            };
+        } catch (error) {
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for keyword magic tool analysis: ' + error.message);
+        }
+    }
+
+    async generateKeywordSuggestions(dto: KeywordSuggestionsDto): Promise<KeywordSuggestionsResponse> {
+        const prompt = `
+    Generate AI-powered keyword suggestions based on the seed keyword: "${dto.seedKeyword}"
+    ${dto.industry ? `Industry Context: ${dto.industry}` : ''}
+    ${dto.location ? `Location: ${dto.location}` : ''}
+    
+    Provide 15-20 high-quality keyword suggestions that include:
+    
+    1. Long-tail keyword variations
+    2. Question-based keywords (How, What, Why, When, Where)
+    3. Commercial intent keywords
+    4. Informational keywords
+    5. Related semantic keywords
+    
+    For each keyword, provide:
+    - keyword: The suggested keyword phrase
+    - searchVolume: Estimated monthly search volume (number)
+    - difficulty: Keyword difficulty score 0-100 (number)
+    - intent: Search intent classification ("Commercial", "Informational", "Navigational", "Transactional")
+    - relevanceScore: AI-calculated relevance to seed keyword 0-1 (number)
+    - category: Category or theme of the keyword (string)
+    
+    Requirements:
+    - Focus on keywords that users would actually search for
+    - Include a mix of different search intents
+    - Ensure high relevance to the seed keyword
+    - Sort by relevance score (highest first)
+    - No exact duplicates
+    
+    Return the response as a JSON object with this structure:
+    {
+        "suggestions": [
+            {
+                "keyword": "example keyword",
+                "searchVolume": 5400,
+                "difficulty": 65,
+                "intent": "Commercial",
+                "relevanceScore": 0.92,
+                "category": "Tools"
+            }
+        ]
+    }
+    `;
+
+        const completion = await this.openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 2000,
+        });
+
+        try {
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
+
+            // Validate and transform the response
+            const suggestions = (response.suggestions || []).map((suggestion: any) => ({
+                keyword: suggestion.keyword || '',
+                searchVolume: suggestion.searchVolume || undefined,
+                difficulty: suggestion.difficulty || undefined,
+                intent: suggestion.intent || undefined,
+                relevanceScore: suggestion.relevanceScore || undefined,
+                category: suggestion.category || undefined,
+            }));
+
+            return {
+                suggestions: suggestions
+            };
+        } catch (error) {
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for keyword suggestions: ' + error.message);
+        }
+    }
+
+    // Public method for keyword suggestions (no auth required)
+    async generateKeywordSuggestionsPublic(dto: KeywordSuggestionsDto): Promise<any[]> {
+        console.log('=== AI SERVICE: generateKeywordSuggestionsPublic START ===');
+        console.log('Input DTO:', JSON.stringify(dto, null, 2));
+
+        // Validate environment
+        if (!process.env.OPENAI_API_KEY) {
+            console.error('OPENAI_API_KEY is missing from environment');
+            return this.generateMockKeywordSuggestions(dto);
+        }
+
+        const prompt = `
+    Generate AI-powered keyword suggestions based on the seed keyword: "${dto.seedKeyword}"
+    ${dto.industry ? `Industry Context: ${dto.industry}` : ''}
+    ${dto.location ? `Location: ${dto.location}` : ''}
+    
+    Provide 10-15 high-quality keyword suggestions that include:
+    
+    1. Long-tail keyword variations
+    2. Question-based keywords (How, What, Why, When, Where)
+    3. Commercial intent keywords
+    4. Informational keywords
+    5. Related semantic keywords
+    
+    For each keyword, provide:
+    - keyword: The suggested keyword phrase
+    - searchVolume: Estimated monthly search volume (number, optional)
+    - difficulty: Keyword difficulty score 0-100 (number, optional)
+    - intent: Search intent classification ("Commercial", "Informational", "Navigational", "Transactional", optional)
+    - relevanceScore: AI-calculated relevance to seed keyword 0-1 (number, optional)
+    - category: Category or theme of the keyword (string, optional)
+    
+    Requirements:
+    - Focus on keywords that users would actually search for
+    - Include a mix of different search intents
+    - Ensure high relevance to the seed keyword
+    - Sort by relevance score (highest first)
+    - No exact duplicates
+    
+    Return ONLY a JSON array of keyword objects without any wrapper:
+    [
+        {
+            "keyword": "example keyword",
+            "searchVolume": 5400,
+            "difficulty": 65,
+            "intent": "Commercial",
+            "relevanceScore": 0.92,
+            "category": "Tools"
+        }
+    ]
+    `;
+
+        console.log('=== CALLING OPENAI API ===');
+        console.log('Seed keyword:', dto.seedKeyword);
+        console.log('API Key exists:', !!process.env.OPENAI_API_KEY);
+        console.log('API Key length:', process.env.OPENAI_API_KEY?.length || 0);
+
+        let completion;
+        try {
+            console.log('Starting OpenAI API call...');
+            completion = await this.openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+                max_tokens: 2000,
+            });
+
+            console.log('=== OPENAI API CALL SUCCESS ===');
+            console.log('Response received');
+            console.log('Choices length:', completion.choices?.length || 0);
+        } catch (apiError) {
+            console.error('=== OPENAI API CALL FAILED ===');
+            console.error('API Error type:', typeof apiError);
+            console.error('API Error name:', apiError.constructor.name);
+            console.error('API Error message:', apiError.message);
+            console.error('API Error code:', apiError.code);
+            console.error('API Error status:', apiError.status);
+            console.error('API Error stack:', apiError.stack);
+
+            // Fallback to mock data if OpenAI fails
+            if (apiError.code === 'invalid_api_key' || apiError.status === 401) {
+                console.log('Using fallback mock data due to API key issue');
+                return this.generateMockKeywordSuggestions(dto);
+            }
+
+            throw new BadRequestException(`OpenAI API error: ${apiError.message}`);
+        }
+
+        console.log('=== PARSING OPENAI RESPONSE ===');
+        try {
+            const responseText = completion.choices[0].message.content || '[]';
+            console.log('Raw OpenAI response:');
+            console.log('Response length:', responseText.length);
+            console.log('Response preview (first 200 chars):', responseText.substring(0, 200));
+            console.log('Full response:', responseText);
+
+            // Clean the response to ensure it's valid JSON
+            const cleanedResponse = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            console.log('Cleaned response:');
+            console.log('Cleaned length:', cleanedResponse.length);
+            console.log('Cleaned preview (first 200 chars):', cleanedResponse.substring(0, 200));
+
+            console.log('Attempting to parse JSON...');
+            const suggestions = JSON.parse(cleanedResponse);
+            console.log('JSON parsing successful');
+            console.log('Parsed suggestions type:', typeof suggestions);
+            console.log('Is array:', Array.isArray(suggestions));
+            console.log('Suggestions count:', Array.isArray(suggestions) ? suggestions.length : 'N/A');
+
+            // Validate that we got an array
+            if (!Array.isArray(suggestions)) {
+                console.error('Response is not an array');
+                console.error('Actual type:', typeof suggestions);
+                console.error('Actual value:', suggestions);
+                throw new Error('Response is not an array');
+            }
+
+            console.log('=== VALIDATING AND FILTERING SUGGESTIONS ===');
+            // Filter and validate suggestions
+            const validSuggestions = suggestions.filter((suggestion, index) => {
+                console.log(`Validating suggestion ${index}:`, JSON.stringify(suggestion, null, 2));
+                const isValid = suggestion &&
+                    typeof suggestion === 'object' &&
+                    suggestion.keyword &&
+                    typeof suggestion.keyword === 'string';
+                console.log(`Suggestion ${index} is valid:`, isValid);
+                return isValid;
+            }).map((suggestion, index) => {
+                const mapped = {
+                    keyword: suggestion.keyword,
+                    searchVolume: suggestion.searchVolume || undefined,
+                    difficulty: suggestion.difficulty || undefined,
+                    intent: suggestion.intent || undefined,
+                    relevanceScore: suggestion.relevanceScore || undefined,
+                    category: suggestion.category || undefined,
+                };
+                console.log(`Mapped suggestion ${index}:`, JSON.stringify(mapped, null, 2));
+                return mapped;
+            });
+
+            console.log('=== FINAL RESULT ===');
+            console.log('Valid suggestions count:', validSuggestions.length);
+            console.log('Final result preview:', JSON.stringify(validSuggestions.slice(0, 2), null, 2));
+
+            return validSuggestions;
+        } catch (parseError) {
+            console.error('=== PARSING ERROR ===');
+            console.error('Parse error type:', typeof parseError);
+            console.error('Parse error name:', parseError.constructor.name);
+            console.error('Parse error message:', parseError.message);
+            console.error('Parse error stack:', parseError.stack);
+
+            console.log('Falling back to mock data due to parsing error');
+            return this.generateMockKeywordSuggestions(dto);
         }
     }
 
@@ -1082,13 +1538,13 @@ export class AiService {
     `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.3,
         });
 
         try {
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
+            const response = this.safeParseOpenAIResponse(completion.choices[0].message.content || '{}')
             return {
                 predictedMetrics: response.predictedMetrics || {
                     estimatedTraffic: 0,
@@ -1100,7 +1556,7 @@ export class AiService {
                 competitorComparison: response.competitorComparison || {},
             };
         } catch (error) {
-            throw new BadRequestException('Failed to parse AI response for content performance prediction');
+            console.error('Error in method:', error); throw new BadRequestException('Failed to parse AI response for content performance prediction: ' + error.message);
         }
     }
 
@@ -1415,4 +1871,149 @@ export class AiService {
             ],
         };
     }
+
+    // Test method to debug OpenAI API issues
+    async testOpenAIConnection(): Promise<string> {
+        try {
+            console.log('Testing OpenAI connection...');
+            const completion = await this.openai.chat.completions.create({
+                model: "gpt-3.5-turbo", // Use cheaper model for testing
+                messages: [{ role: "user", content: "Say hello" }],
+                max_tokens: 10,
+            });
+
+            const response = completion.choices[0].message.content || 'No response';
+            console.log('OpenAI test successful:', response);
+            return response;
+        } catch (error) {
+            console.error('OpenAI test failed:', error);
+            throw new BadRequestException(`OpenAI connection test failed: ${error.message}`);
+        }
+    }
+
+    // Fallback mock data generator
+    private generateMockKeywordSuggestions(dto: KeywordSuggestionsDto): any[] {
+        console.log('=== GENERATING MOCK DATA ===');
+        const seedKeyword = dto.seedKeyword.toLowerCase();
+        const industry = dto.industry || 'general';
+        const location = dto.location || 'global';
+
+        console.log(`Mock data params - seedKeyword: ${seedKeyword}, industry: ${industry}, location: ${location}`);
+
+        // Mock suggestions based on seed keyword
+        const mockSuggestions = [
+            {
+                keyword: `best ${seedKeyword}`,
+                searchVolume: 2500,
+                difficulty: 65,
+                intent: "Commercial",
+                relevanceScore: 0.95,
+                category: "Comparison"
+            },
+            {
+                keyword: `${seedKeyword} guide`,
+                searchVolume: 1800,
+                difficulty: 45,
+                intent: "Informational",
+                relevanceScore: 0.88,
+                category: "Education"
+            },
+            {
+                keyword: `how to use ${seedKeyword}`,
+                searchVolume: 1200,
+                difficulty: 40,
+                intent: "Informational",
+                relevanceScore: 0.82,
+                category: "Tutorial"
+            },
+            {
+                keyword: `${seedKeyword} tips`,
+                searchVolume: 950,
+                difficulty: 35,
+                intent: "Informational",
+                relevanceScore: 0.78,
+                category: "Tips"
+            },
+            {
+                keyword: `${seedKeyword} for beginners`,
+                searchVolume: 800,
+                difficulty: 30,
+                intent: "Informational",
+                relevanceScore: 0.75,
+                category: "Education"
+            },
+            {
+                keyword: `free ${seedKeyword}`,
+                searchVolume: 1500,
+                difficulty: 55,
+                intent: "Commercial",
+                relevanceScore: 0.85,
+                category: "Free"
+            },
+            {
+                keyword: `${seedKeyword} software`,
+                searchVolume: 2200,
+                difficulty: 70,
+                intent: "Commercial",
+                relevanceScore: 0.90,
+                category: "Software"
+            },
+            {
+                keyword: `${seedKeyword} online`,
+                searchVolume: 1100,
+                difficulty: 50,
+                intent: "Commercial",
+                relevanceScore: 0.80,
+                category: "Online"
+            },
+            {
+                keyword: `what is ${seedKeyword}`,
+                searchVolume: 600,
+                difficulty: 25,
+                intent: "Informational",
+                relevanceScore: 0.70,
+                category: "Definition"
+            },
+            {
+                keyword: `${seedKeyword} vs alternatives`,
+                searchVolume: 400,
+                difficulty: 45,
+                intent: "Commercial",
+                relevanceScore: 0.68,
+                category: "Comparison"
+            }
+        ];
+
+        // Add industry-specific suggestions if provided
+        if (dto.industry && dto.industry !== 'general') {
+            mockSuggestions.push({
+                keyword: `${seedKeyword} for ${dto.industry.toLowerCase()}`,
+                searchVolume: 750,
+                difficulty: 42,
+                intent: "Commercial",
+                relevanceScore: 0.83,
+                category: dto.industry
+            });
+        }
+
+        // Add location-specific suggestions if provided
+        if (dto.location && dto.location !== 'global') {
+            mockSuggestions.push({
+                keyword: `${seedKeyword} in ${dto.location}`,
+                searchVolume: 300,
+                difficulty: 38,
+                intent: "Commercial",
+                relevanceScore: 0.72,
+                category: "Local"
+            });
+        }
+
+        const finalSuggestions = mockSuggestions.slice(0, 12);
+        console.log('Generated mock suggestions count:', finalSuggestions.length);
+        console.log('Mock suggestions preview:', JSON.stringify(finalSuggestions.slice(0, 2), null, 2));
+
+        return finalSuggestions; // Return max 12 suggestions
+    }
 }
+
+

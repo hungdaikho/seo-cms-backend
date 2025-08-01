@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsEnum, IsNumber, IsUUID, IsNotEmpty, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsEnum, IsNumber, IsUUID, IsNotEmpty, IsObject, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum AIRequestType {
@@ -22,6 +22,8 @@ export enum AIRequestType {
     LONG_TAIL_KEYWORDS = 'long_tail_keywords',
     QUESTION_BASED_KEYWORDS = 'question_based_keywords',
     SEASONAL_KEYWORD_TRENDS = 'seasonal_keyword_trends',
+    KEYWORD_MAGIC_TOOL = 'keyword_magic_tool',
+    KEYWORD_SUGGESTIONS = 'keyword_suggestions',
     // Analytics
     CONTENT_PERFORMANCE_PREDICTION = 'content_performance_prediction',
 }
@@ -104,6 +106,26 @@ export class ContentIdeasDto {
     count?: number = 10;
 }
 
+export class KeywordSuggestionsDto {
+    @ApiProperty({ description: 'The main keyword to generate suggestions from', example: 'seo tools' })
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(100, { message: 'Seed keyword must not exceed 100 characters' })
+    seedKeyword: string;
+
+    @ApiPropertyOptional({ description: 'Industry context for more relevant suggestions', example: 'Technology' })
+    @IsOptional()
+    @IsString()
+    @MaxLength(50, { message: 'Industry must not exceed 50 characters' })
+    industry?: string;
+
+    @ApiPropertyOptional({ description: 'Country/location code for geo-targeted suggestions', example: 'US' })
+    @IsOptional()
+    @IsString()
+    @MaxLength(10, { message: 'Location code must not exceed 10 characters' })
+    location?: string;
+}
+
 export class CompetitorAnalysisDto {
     @ApiProperty({ description: 'Competitor domain' })
     @IsString()
@@ -184,6 +206,31 @@ export class SearchIntentAnalysis {
 
     @ApiProperty()
     percentage: number;
+}
+
+export class KeywordSuggestionItem {
+    @ApiProperty({ description: 'The suggested keyword phrase', example: 'best seo tools 2024' })
+    keyword: string;
+
+    @ApiPropertyOptional({ description: 'Monthly search volume (if available)', example: 5400 })
+    searchVolume?: number;
+
+    @ApiPropertyOptional({ description: 'Keyword difficulty score 0-100 (if available)', example: 65 })
+    difficulty?: number;
+
+    @ApiPropertyOptional({ description: 'Search intent classification', example: 'Commercial', enum: ['Commercial', 'Informational', 'Navigational', 'Transactional'] })
+    intent?: string;
+
+    @ApiPropertyOptional({ description: 'AI-calculated relevance to seed keyword (0-1)', example: 0.85 })
+    relevanceScore?: number;
+
+    @ApiPropertyOptional({ description: 'Category or theme of the keyword', example: 'Tools' })
+    category?: string;
+}
+
+export class KeywordSuggestionsResponse {
+    @ApiProperty({ type: [KeywordSuggestionItem], description: 'Array of keyword suggestions' })
+    suggestions: KeywordSuggestionItem[];
 }
 
 export class ContentOptimizationResponse {
@@ -601,6 +648,94 @@ export class SeasonalKeywordTrendsDto {
     location?: string;
 }
 
+export class KeywordMagicToolDto {
+    @ApiProperty({ description: 'Seed keyword or topic to expand' })
+    @IsString()
+    @IsNotEmpty()
+    seedKeyword: string;
+
+    @ApiPropertyOptional({ description: 'Industry or niche context' })
+    @IsOptional()
+    @IsString()
+    industry?: string;
+
+    @ApiPropertyOptional({ description: 'Target location/country', default: 'US' })
+    @IsOptional()
+    @IsString()
+    location?: string = 'US';
+
+    @ApiPropertyOptional({ description: 'Target language', default: 'en' })
+    @IsOptional()
+    @IsString()
+    language?: string = 'en';
+
+    @ApiPropertyOptional({ description: 'Search intent filter', enum: ['all', 'informational', 'commercial', 'transactional', 'navigational'] })
+    @IsOptional()
+    @IsEnum(['all', 'informational', 'commercial', 'transactional', 'navigational'])
+    intentFilter?: string = 'all';
+
+    @ApiPropertyOptional({ description: 'Keyword difficulty range (min)', minimum: 0, maximum: 100 })
+    @IsOptional()
+    @IsNumber()
+    minDifficulty?: number = 0;
+
+    @ApiPropertyOptional({ description: 'Keyword difficulty range (max)', minimum: 0, maximum: 100 })
+    @IsOptional()
+    @IsNumber()
+    maxDifficulty?: number = 100;
+
+    @ApiPropertyOptional({ description: 'Minimum search volume', minimum: 0 })
+    @IsOptional()
+    @IsNumber()
+    minVolume?: number = 0;
+
+    @ApiPropertyOptional({ description: 'Maximum search volume' })
+    @IsOptional()
+    @IsNumber()
+    maxVolume?: number;
+
+    @ApiPropertyOptional({ description: 'Include long-tail keywords', default: true })
+    @IsOptional()
+    includeLongTail?: boolean = true;
+
+    @ApiPropertyOptional({ description: 'Include question-based keywords', default: true })
+    @IsOptional()
+    includeQuestions?: boolean = true;
+
+    @ApiPropertyOptional({ description: 'Include competitor keywords', default: true })
+    @IsOptional()
+    includeCompetitorKeywords?: boolean = true;
+
+    @ApiPropertyOptional({ description: 'Include seasonal trends analysis', default: true })
+    @IsOptional()
+    includeSeasonalTrends?: boolean = true;
+
+    @ApiPropertyOptional({ description: 'Include related topics', default: true })
+    @IsOptional()
+    includeRelatedTopics?: boolean = true;
+
+    @ApiPropertyOptional({ description: 'Number of keywords to generate per category', default: 50 })
+    @IsOptional()
+    @IsNumber()
+    limitPerCategory?: number = 50;
+
+    @ApiPropertyOptional({ description: 'Competitor domains to analyze' })
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    competitorDomains?: string[];
+
+    @ApiPropertyOptional({ description: 'Content type for keyword targeting', enum: ['blog', 'product', 'service', 'landing-page', 'category'] })
+    @IsOptional()
+    @IsEnum(['blog', 'product', 'service', 'landing-page', 'category'])
+    contentType?: string;
+
+    @ApiPropertyOptional({ description: 'Target audience description' })
+    @IsOptional()
+    @IsString()
+    targetAudience?: string;
+}
+
 // =============================
 // AI ANALYTICS DTOs
 // =============================
@@ -864,6 +999,105 @@ export class SeasonalKeywordTrendsResponse {
             topics: string[];
         }[];
     }[];
+}
+
+export class KeywordMagicToolResponse {
+    @ApiProperty()
+    seedKeyword: string;
+
+    @ApiProperty()
+    totalKeywords: number;
+
+    @ApiProperty()
+    summary: {
+        avgSearchVolume: number;
+        avgDifficulty: number;
+        totalEstimatedTraffic: number;
+        topIntent: string;
+        competitionLevel: 'low' | 'medium' | 'high';
+    };
+
+    @ApiProperty()
+    primaryKeywords: {
+        keyword: string;
+        searchVolume: number;
+        difficulty: number;
+        cpc: number;
+        intent: string;
+        trend: 'rising' | 'stable' | 'declining';
+        competition: 'low' | 'medium' | 'high';
+        opportunity: number;
+    }[];
+
+    @ApiProperty()
+    longTailKeywords: {
+        keyword: string;
+        searchVolume: number;
+        difficulty: number;
+        intent: string;
+        parentKeyword: string;
+        wordCount: number;
+    }[];
+
+    @ApiProperty()
+    questionKeywords: {
+        question: string;
+        searchVolume: number;
+        difficulty: number;
+        answerType: 'paragraph' | 'list' | 'how-to' | 'definition';
+        featuredSnippetChance: number;
+    }[];
+
+    @ApiProperty()
+    relatedTopics: {
+        topic: string;
+        relevance: number;
+        keywordCount: number;
+        topKeywords: string[];
+    }[];
+
+    @ApiProperty()
+    competitorAnalysis?: {
+        domain: string;
+        sharedKeywords: string[];
+        keywordGaps: string[];
+        competitorStrength: number;
+    }[];
+
+    @ApiProperty()
+    seasonalData?: {
+        keyword: string;
+        peakMonths: string[];
+        lowMonths: string[];
+        yearlyTrend: 'growing' | 'stable' | 'declining';
+    }[];
+
+    @ApiProperty()
+    contentSuggestions: {
+        contentType: string;
+        suggestedTopics: string[];
+        primaryKeywords: string[];
+        supportingKeywords: string[];
+        estimatedWordCount: number;
+    }[];
+
+    @ApiProperty()
+    keywordClusters: {
+        cluster: string;
+        keywords: string[];
+        pillarKeyword: string;
+        difficulty: number;
+        totalVolume: number;
+    }[];
+
+    @ApiProperty()
+    filters: {
+        location: string;
+        language: string;
+        intentFilter: string;
+        difficultyRange: string;
+        volumeRange: string;
+    };
 }
 
 export class ContentPerformancePredictionResponse {

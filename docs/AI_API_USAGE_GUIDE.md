@@ -89,6 +89,7 @@ export enum AIRequestType {
   LONG_TAIL_KEYWORDS = 'long_tail_keywords',
   QUESTION_BASED_KEYWORDS = 'question_based_keywords',
   SEASONAL_KEYWORD_TRENDS = 'seasonal_keyword_trends',
+  KEYWORD_MAGIC_TOOL = 'keyword_magic_tool',
   CONTENT_PERFORMANCE_PREDICTION = 'content_performance_prediction',
 }
 ```
@@ -318,6 +319,77 @@ Kiểm tra SEO
 
 ---
 
+### 8. KEYWORD_MAGIC_TOOL
+
+Công cụ nghiên cứu từ khóa tổng hợp (Magic Tool)
+
+**Type**: `AIRequestType.KEYWORD_MAGIC_TOOL` hoặc `'keyword_magic_tool'`
+
+**Payload mẫu**:
+
+```json
+{
+  "type": "keyword_magic_tool",
+  "parameters": {
+    "seedKeyword": "digital marketing",
+    "industry": "technology",
+    "location": "US",
+    "language": "en",
+    "intentFilter": "all",
+    "minDifficulty": 0,
+    "maxDifficulty": 80,
+    "minVolume": 100,
+    "includeLongTail": true,
+    "includeQuestions": true,
+    "includeCompetitorKeywords": true,
+    "includeSeasonalTrends": true,
+    "includeRelatedTopics": true,
+    "limitPerCategory": 50,
+    "competitorDomains": ["competitor1.com", "competitor2.com"],
+    "contentType": "blog",
+    "targetAudience": "small business owners"
+  },
+  "projectId": "uuid-here"
+}
+```
+
+**Trường bắt buộc**:
+
+- `seedKeyword` (string): Từ khóa gốc để mở rộng
+
+**Trường tùy chọn**:
+
+- `industry` (string): Ngành nghề/lĩnh vực
+- `location` (string): Vị trí địa lý (mặc định: "US")
+- `language` (string): Ngôn ngữ (mặc định: "en")
+- `intentFilter` (string): Lọc theo intent ('all', 'informational', 'commercial', 'transactional', 'navigational')
+- `minDifficulty` (number): Độ khó tối thiểu (0-100)
+- `maxDifficulty` (number): Độ khó tối đa (0-100)
+- `minVolume` (number): Lượng tìm kiếm tối thiểu
+- `maxVolume` (number): Lượng tìm kiếm tối đa
+- `includeLongTail` (boolean): Bao gồm từ khóa dài (mặc định: true)
+- `includeQuestions` (boolean): Bao gồm từ khóa câu hỏi (mặc định: true)
+- `includeCompetitorKeywords` (boolean): Bao gồm phân tích đối thủ (mặc định: true)
+- `includeSeasonalTrends` (boolean): Bao gồm xu hướng theo mùa (mặc định: true)
+- `includeRelatedTopics` (boolean): Bao gồm chủ đề liên quan (mặc định: true)
+- `limitPerCategory` (number): Số lượng từ khóa mỗi danh mục (mặc định: 50)
+- `competitorDomains` (string[]): Danh sách domain đối thủ để phân tích
+- `contentType` (string): Loại nội dung ('blog', 'product', 'service', 'landing-page', 'category')
+- `targetAudience` (string): Đối tượng mục tiêu
+
+**Response bao gồm**:
+
+- Từ khóa chính với metrics chi tiết
+- Long-tail keywords và variations
+- Question-based keywords
+- Related topics và keyword clusters
+- Competitor analysis (nếu enabled)
+- Seasonal trends data (nếu enabled)
+- Content suggestions với keyword mapping
+- Summary statistics và insights
+
+---
+
 ## Các AI Request Type nâng cao khác
 
 ### Advanced Content Generation
@@ -338,6 +410,7 @@ Kiểm tra SEO
 - `AIRequestType.LONG_TAIL_KEYWORDS` (`'long_tail_keywords'`) - Tạo từ khóa dài
 - `AIRequestType.QUESTION_BASED_KEYWORDS` (`'question_based_keywords'`) - Từ khóa dạng câu hỏi
 - `AIRequestType.SEASONAL_KEYWORD_TRENDS` (`'seasonal_keyword_trends'`) - Xu hướng từ khóa theo mùa
+- `AIRequestType.KEYWORD_MAGIC_TOOL` (`'keyword_magic_tool'`) - Công cụ nghiên cứu từ khóa tổng hợp
 
 ### Analytics
 
@@ -480,5 +553,9 @@ Ngoài endpoint `/request` tổng quát, còn có các endpoint chuyên biệt:
 - `POST /content-ideas` - Tạo ý tưởng nội dung
 - `POST /competitor-analysis` - Phân tích đối thủ
 - `POST /seo-audit` - Kiểm tra SEO
+- `POST /keywords/magic-tool` - Công cụ nghiên cứu từ khóa tổng hợp
+- `POST /keywords/long-tail` - Tạo từ khóa dài
+- `POST /keywords/questions` - Tạo từ khóa câu hỏi
+- `POST /keywords/seasonal-trends` - Phân tích xu hướng theo mùa
 - `GET /requests` - Lấy lịch sử requests
 - `GET /requests/:id` - Lấy thông tin request cụ thể

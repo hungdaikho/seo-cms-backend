@@ -33,6 +33,7 @@ This document describes the available API endpoints and methods provided by the 
 - `LONG_TAIL_KEYWORDS`
 - `QUESTION_BASED_KEYWORDS`
 - `SEASONAL_KEYWORD_TRENDS`
+- `KEYWORD_MAGIC_TOOL`
 - `CONTENT_PERFORMANCE_PREDICTION`
 
 ---

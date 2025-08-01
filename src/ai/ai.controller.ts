@@ -41,6 +41,8 @@ import {
     LongTailKeywordsDto,
     QuestionBasedKeywordsDto,
     SeasonalKeywordTrendsDto,
+    KeywordMagicToolDto,
+    KeywordSuggestionsDto,
     // AI Analytics DTOs
     ContentPerformancePredictionDto,
     AIUsageAnalyticsDto,
@@ -60,6 +62,8 @@ import {
     LongTailKeywordsResponse,
     QuestionBasedKeywordsResponse,
     SeasonalKeywordTrendsResponse,
+    KeywordMagicToolResponse,
+    KeywordSuggestionsResponse,
     ContentPerformancePredictionResponse,
     AIUsageAnalyticsResponse,
     AIToolUsageResponse,
@@ -343,6 +347,22 @@ export class AiController {
         );
     }
 
+    @Post('seo/keyword-suggestions')
+    @ApiOperation({ summary: 'Generate AI-powered keyword suggestions based on a seed keyword' })
+    @ApiResponse({ status: 201, description: 'Keyword suggestions generated successfully', type: KeywordSuggestionsResponse })
+    async generateKeywordSuggestions(
+        @Request() req,
+        @Body() dto: KeywordSuggestionsDto,
+        @Query('projectId') projectId?: string
+    ) {
+        return this.aiService.processAIRequest(
+            req.user.id,
+            AIRequestType.KEYWORD_SUGGESTIONS,
+            dto,
+            projectId
+        );
+    }
+
     // =============================
     // ADVANCED KEYWORD RESEARCH ENDPOINTS
     // =============================
@@ -390,6 +410,22 @@ export class AiController {
         return this.aiService.processAIRequest(
             req.user.id,
             AIRequestType.SEASONAL_KEYWORD_TRENDS,
+            dto,
+            projectId
+        );
+    }
+
+    @Post('keywords/magic-tool')
+    @ApiOperation({ summary: 'Comprehensive keyword research using AI Magic Tool' })
+    @ApiResponse({ status: 201, description: 'Keyword magic tool analysis completed successfully', type: KeywordMagicToolResponse })
+    async keywordMagicTool(
+        @Request() req,
+        @Body() dto: KeywordMagicToolDto,
+        @Query('projectId') projectId?: string
+    ) {
+        return this.aiService.processAIRequest(
+            req.user.id,
+            AIRequestType.KEYWORD_MAGIC_TOOL,
             dto,
             projectId
         );
