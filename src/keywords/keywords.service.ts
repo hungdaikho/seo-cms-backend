@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { DatabaseService } from '../database/database.service';
 import { CreateKeywordDto, UpdateKeywordDto, BulkCreateKeywordsDto } from './dto/keyword.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { KeywordDifficultyService } from '../keyword-difficulty/keyword-difficulty.service';
 
 @Injectable()
 export class KeywordsService {
-    constructor(private readonly databaseService: DatabaseService) { }
+    constructor(
+        private readonly databaseService: DatabaseService,
+        private readonly keywordDifficultyService: KeywordDifficultyService
+    ) { }
 
     async createKeyword(userId: string, projectId: string, createKeywordDto: CreateKeywordDto) {
         // Verify project ownership
@@ -14,9 +18,25 @@ export class KeywordsService {
         // Check keyword limit
         await this.checkKeywordLimit(userId);
 
+        // Calculate difficulty if not provided
+        let difficulty = createKeywordDto.difficulty;
+        if (!difficulty) {
+            try {
+                const difficultyResult = await this.keywordDifficultyService.calculateDifficulty(createKeywordDto.keyword);
+                difficulty = difficultyResult.difficulty;
+                console.log(`✅ Calculated difficulty for "${createKeywordDto.keyword}": ${difficulty} (confidence: ${difficultyResult.confidence}%)`);
+            } catch (error) {
+                console.warn(`⚠️ Failed to calculate difficulty for "${createKeywordDto.keyword}": ${error.message}`);
+                // Use estimated difficulty as fallback
+                difficulty = this.estimateBasicDifficulty(createKeywordDto.keyword);
+                console.log(`📊 Using estimated difficulty for "${createKeywordDto.keyword}": ${difficulty}`);
+            }
+        }
+
         const keyword = await this.databaseService.keyword.create({
             data: {
                 ...createKeywordDto,
+                difficulty,
                 projectId,
             },
         });
@@ -52,12 +72,35 @@ export class KeywordsService {
             }
         }
 
+        // Calculate difficulty for keywords that don't have it
+        console.log(`📊 Calculating difficulty for ${bulkCreateDto.keywords.length} keywords...`);
+        const keywordsWithDifficulty = await Promise.all(
+            bulkCreateDto.keywords.map(async (keyword) => {
+                let difficulty = keyword.difficulty;
+
+                if (!difficulty) {
+                    try {
+                        const difficultyResult = await this.keywordDifficultyService.calculateDifficulty(keyword.keyword);
+                        difficulty = difficultyResult.difficulty;
+                        console.log(`✅ Calculated difficulty for "${keyword.keyword}": ${difficulty}`);
+                    } catch (error) {
+                        console.warn(`⚠️ Failed to calculate difficulty for "${keyword.keyword}": ${error.message}`);
+                        difficulty = this.estimateBasicDifficulty(keyword.keyword);
+                        console.log(`📊 Using estimated difficulty for "${keyword.keyword}": ${difficulty}`);
+                    }
+                }
+
+                return {
+                    ...keyword,
+                    difficulty,
+                    projectId,
+                };
+            })
+        );
+
         // Create keywords in batch
         const keywords = await this.databaseService.keyword.createMany({
-            data: bulkCreateDto.keywords.map(keyword => ({
-                ...keyword,
-                projectId,
-            })),
+            data: keywordsWithDifficulty,
         });
 
         // Update usage
@@ -250,5 +293,31 @@ export class KeywordsService {
                 },
             });
         }
+    }
+
+    /**
+     * Estimate basic difficulty when calculation service fails
+     */
+    private estimateBasicDifficulty(keyword: string): number {
+        // Fallback estimation logic
+        let difficulty = 50; // Base difficulty
+
+        const words = keyword.split(' ');
+        if (words.length === 1) difficulty += 20; // Single words harder
+        else if (words.length >= 4) difficulty -= 15; // Long-tail easier
+
+        // Commercial intent indicators
+        const commercialWords = ['buy', 'price', 'best', 'top', 'review'];
+        if (commercialWords.some(word => keyword.toLowerCase().includes(word))) {
+            difficulty += 15;
+        }
+
+        // Informational intent indicators  
+        const informationalWords = ['what', 'how', 'tutorial', 'guide'];
+        if (informationalWords.some(word => keyword.toLowerCase().includes(word))) {
+            difficulty -= 10;
+        }
+
+        return Math.min(100, Math.max(10, difficulty));
     }
 }

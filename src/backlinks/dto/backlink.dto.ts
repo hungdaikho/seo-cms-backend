@@ -74,7 +74,7 @@ export class BacklinkAnalyticsQuery {
     @IsString()
     endDate?: string;
 
-    @ApiProperty({ required: false, default: 30, description: 'Number of days to analyze' })
+    @ApiProperty({ required: false, default: 360, description: 'Number of days to analyze (default: 360 for comprehensive yearly analysis)' })
     @IsOptional()
     @IsNumber()
     days?: number;

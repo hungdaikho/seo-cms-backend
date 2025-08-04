@@ -260,10 +260,14 @@ export class AuditsService {
                 created_at: audit.createdAt,
                 completed_at: audit.completedAt,
                 summary: audit.results ? {
-                    score: (audit.results as any)?.overall_score || null,
-                    issues_found: (audit.results as any)?.issues_count || 0,
-                    pages_audited: (audit.results as any)?.pages_audited || 0,
-                } : null,
+                    score: (audit.results as any)?.overview?.score || null,
+                    issues_found: (audit.results as any)?.overview?.total_issues || 0,
+                    pages_audited: (audit.results as any)?.overview?.pages_analyzed || 0,
+                } : {
+                    score: null,
+                    issues_found: 0,
+                    pages_audited: 0,
+                },
             })),
             total,
             page,

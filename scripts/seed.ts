@@ -1,5 +1,7 @@
 import { DatabaseService } from '../src/database/database.service';
 import { seedSubscriptionPlans } from '../src/database/seeds/subscription-plans.seed';
+import { seedDemoProjects } from '../src/database/seeds/demo-projects.seed';
+import { seedBacklinks } from '../src/database/seeds/backlinks.seed';
 
 async function main() {
     const databaseService = new DatabaseService();
@@ -10,6 +12,12 @@ async function main() {
 
         // Seed subscription plans
         await seedSubscriptionPlans(databaseService);
+
+        // Seed demo projects
+        await seedDemoProjects(databaseService);
+
+        // Seed realistic backlinks data
+        await seedBacklinks(databaseService);
 
         console.log('✅ Database seeded successfully');
     } catch (error) {

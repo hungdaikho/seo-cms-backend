@@ -141,11 +141,11 @@ export class BacklinksService {
             throw new NotFoundException('Project not found');
         }
 
-        // Calculate date range
+        // Calculate date range - default to 360 days for comprehensive analysis
         const endDate = query.endDate ? new Date(query.endDate) : new Date();
         const startDate = query.startDate
             ? new Date(query.startDate)
-            : new Date(Date.now() - (query.days || 30) * 24 * 60 * 60 * 1000);
+            : new Date(Date.now() - (query.days || 360) * 24 * 60 * 60 * 1000);
 
         // Get all backlinks for the project
         const allBacklinks = await this.databaseService.backlink.findMany({

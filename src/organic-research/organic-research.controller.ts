@@ -19,7 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @ApiTags('Organic Research')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('api/v1/seo/organic-research')
+@Controller('seo/organic-research')
 export class OrganicResearchController {
     constructor(private readonly organicResearchService: OrganicResearchService) { }
 
