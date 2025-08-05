@@ -22,6 +22,7 @@ import { OrganicResearchModule } from './organic-research/organic-research.modul
 import { DomainOverviewModule } from './domain-overview/domain-overview.module';
 import { TopicResearchModule } from './topic-research/topic-research.module';
 import { ContentModule } from './content/content.module';
+import { TrafficAnalyticsModule } from './traffic-analytics/traffic-analytics.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { ContentModule } from './content/content.module';
     DomainOverviewModule,
     TopicResearchModule,
     ContentModule,
+    TrafficAnalyticsModule,
     SchedulerModule,
   ],
   controllers: [AppController],

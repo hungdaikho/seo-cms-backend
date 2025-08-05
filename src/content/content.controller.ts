@@ -48,7 +48,7 @@ import {
 @ApiTags('Content Management')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('api/v1/projects/:projectId/content')
+@Controller('projects/:projectId/content')
 export class ContentController {
     constructor(private readonly contentService: ContentService) { }
 

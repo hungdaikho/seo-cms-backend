@@ -34,6 +34,39 @@ Postman collection with:
 - Authentication flow
 - Response validation
 
+### 4. **CONTENT_PLANNING_API.md**
+
+Complete content planning and management documentation:
+
+- Content calendar management
+- Editorial calendar workflow
+- Content templates system
+- AI-powered content ideas
+- Topic research integration
+- Content performance analytics
+- Content categories & organization
+- Workflow examples and best practices
+
+### 5. **CONTENT_PLANNING_QUICK_REFERENCE.md**
+
+Quick reference guide for content planning APIs:
+
+- Essential endpoints summary
+- Quick examples
+- Common use cases
+- Fast integration guide
+
+### 6. **TOPIC_RESEARCH_API.md**
+
+Comprehensive topic research API documentation:
+
+- Topic idea generation
+- Related topics discovery
+- Question-based content ideas
+- Trending topics analysis
+- Content gap identification
+- Batch topic analysis
+
 ## 🚀 Quick Start
 
 ### 1. View Interactive Documentation

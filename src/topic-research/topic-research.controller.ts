@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @ApiTags('Topic Research')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('api/v1/seo/topic-research')
+@Controller('seo/topic-research')
 export class TopicResearchController {
     constructor(private readonly topicResearchService: TopicResearchService) { }
 
@@ -179,5 +179,43 @@ export class TopicResearchController {
             country: country || 'global',
             lastUpdated: new Date().toISOString()
         };
+    }
+
+    @Get('api-status')
+    @ApiOperation({ summary: 'Check status of external APIs integration' })
+    @ApiResponse({ status: 200, description: 'API status retrieved successfully' })
+    async getApiStatus() {
+        const apiStatus = await this.topicResearchService.checkApiStatus();
+        return {
+            apis: apiStatus,
+            hasRealData: Object.values(apiStatus).some(status => status),
+            message: Object.values(apiStatus).some(status => status)
+                ? 'Google APIs are configured and available'
+                : 'No APIs configured - using mock data only',
+            recommendations: {
+                freeOptions: [
+                    'Set up Google Custom Search API (100 free searches/day)',
+                    'Configure YouTube Data API (10,000 free units/day)',
+                    'Google Trends is automatically available'
+                ],
+                benefits: [
+                    'Real search volume estimates',
+                    'Actual competition data',
+                    'Live trending topics',
+                    'YouTube content insights'
+                ]
+            },
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    @Get('demo/:keyword')
+    @ApiOperation({ summary: 'Demo comprehensive keyword analysis using Google APIs' })
+    @ApiResponse({ status: 200, description: 'Comprehensive keyword data retrieved' })
+    async getKeywordDemo(
+        @Param('keyword') keyword: string,
+        @Query('country') country: string = 'US'
+    ) {
+        return this.topicResearchService.getComprehensiveKeywordDemo(keyword, country);
     }
 }
