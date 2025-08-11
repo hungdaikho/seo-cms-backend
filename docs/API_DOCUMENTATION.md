@@ -163,6 +163,22 @@ POST /auth/login
 
 - `401 Unauthorized` - Invalid credentials
 
+#### Password Management
+
+**See [Password & Security API Documentation](./PASSWORD_SECURITY_API.md) for complete details:**
+
+- `POST /auth/change-password` - Change password (authenticated)
+- `POST /auth/forgot-password` - Request password reset email
+- `POST /auth/reset-password` - Reset password with token
+- `POST /auth/verify-email` - Verify email address
+- `POST /auth/resend-verification` - Resend verification email
+
+#### Session Management
+
+- `GET /auth/sessions` - Get all user sessions
+- `DELETE /auth/sessions/:id` - Revoke specific session
+- `DELETE /auth/sessions` - Revoke all other sessions
+
 ---
 
 ### 👤 Users
@@ -269,6 +285,14 @@ GET /users/notifications?limit=10
   }
 ]
 ```
+
+#### Account Security & Management
+
+**See [Password & Security API Documentation](./PASSWORD_SECURITY_API.md) for complete details:**
+
+- `POST /users/deactivate` - Deactivate account (soft delete)
+- `DELETE /users/account` - Request permanent account deletion
+- `POST /users/export-data` - Export all user data (GDPR compliance)
 
 ---
 
