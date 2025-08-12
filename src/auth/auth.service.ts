@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { DatabaseService } from '../database/database.service';
-import { RegisterDto, LoginDto, ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto, VerifyEmailDto, ResendVerificationDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto, VerifyEmailDto, ResendVerificationDto, GoogleUserDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -92,6 +92,11 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
+        // Check if user has password (not OAuth user)
+        if (!user.password) {
+            throw new UnauthorizedException('Please use Google login for this account');
+        }
+
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
@@ -165,6 +170,11 @@ export class AuthService {
 
         if (!user) {
             throw new NotFoundException('User not found');
+        }
+
+        // Check if user has password (not OAuth user)
+        if (!user.password) {
+            throw new BadRequestException('Cannot change password for OAuth accounts');
         }
 
         // Verify current password
@@ -352,5 +362,135 @@ export class AuthService {
         // This would require implementing session tracking
         // For now, return placeholder response
         return { message: 'All other sessions revoked successfully' };
+    }
+
+    async googleLogin(googleUser: GoogleUserDto) {
+        console.log('AuthService.googleLogin called with:', googleUser);
+
+        // Validate required fields
+        if (!googleUser.email) {
+            throw new BadRequestException('Email is required from Google profile');
+        }
+
+        if (!googleUser.googleId) {
+            throw new BadRequestException('Google ID is required');
+        }
+
+        // Check if user already exists with this Google ID
+        let user = await this.databaseService.user.findFirst({
+            where: {
+                OR: [
+                    { googleId: googleUser.googleId },
+                    { email: googleUser.email },
+                ]
+            },
+            include: {
+                subscriptions: {
+                    where: { status: { in: ['active', 'trial'] } },
+                    include: { plan: true },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                },
+            },
+        });
+
+        if (!user) {
+            // Create new user from Google profile
+            const fullName = `${googleUser.firstName || ''} ${googleUser.lastName || ''}`.trim() || 'Google User';
+
+            user = await this.databaseService.user.create({
+                data: {
+                    email: googleUser.email,
+                    name: fullName,
+                    googleId: googleUser.googleId,
+                    profilePicture: googleUser.picture || null,
+                    emailVerified: true, // Google emails are pre-verified
+                    password: '', // Empty password for OAuth users
+                },
+                include: {
+                    subscriptions: {
+                        where: { status: { in: ['active', 'trial'] } },
+                        include: { plan: true },
+                        orderBy: { createdAt: 'desc' },
+                        take: 1,
+                    },
+                },
+            });
+
+            // Create trial subscription for new Google users
+            const trialPlan = await this.databaseService.subscriptionPlan.findFirst({
+                where: { slug: 'trial' },
+            });
+
+            if (trialPlan) {
+                const trialEnd = new Date();
+                trialEnd.setDate(trialEnd.getDate() + 14);
+
+                await this.databaseService.userSubscription.create({
+                    data: {
+                        userId: user.id,
+                        planId: trialPlan.id,
+                        status: 'trial',
+                        startedAt: new Date(),
+                        trialEndsAt: trialEnd,
+                        expiresAt: trialEnd,
+                    },
+                });
+
+                // Refresh user data to include new subscription
+                user = await this.databaseService.user.findUnique({
+                    where: { id: user.id },
+                    include: {
+                        subscriptions: {
+                            where: { status: { in: ['active', 'trial'] } },
+                            include: { plan: true },
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                        },
+                    },
+                });
+            }
+        } else {
+            // Update existing user with Google info if not already set
+            if (!user.googleId) {
+                user = await this.databaseService.user.update({
+                    where: { id: user.id },
+                    data: {
+                        googleId: googleUser.googleId,
+                        profilePicture: googleUser.picture,
+                        emailVerified: true,
+                    },
+                    include: {
+                        subscriptions: {
+                            where: { status: { in: ['active', 'trial'] } },
+                            include: { plan: true },
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                        },
+                    },
+                });
+            }
+        }
+
+        if (!user) {
+            throw new UnauthorizedException('Failed to authenticate with Google');
+        }
+
+        // Generate JWT token
+        const payload = { sub: user.id, email: user.email, role: user.role };
+        const accessToken = this.jwtService.sign(payload);
+
+        return {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                profilePicture: user.profilePicture,
+                emailVerified: user.emailVerified,
+            },
+            subscription: user.subscriptions?.[0] || null,
+            accessToken,
+        };
     }
 }

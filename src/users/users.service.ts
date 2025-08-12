@@ -108,6 +108,11 @@ export class UsersService {
             throw new NotFoundException('User not found');
         }
 
+        // Check if user has password (not OAuth user)
+        if (!user.password) {
+            throw new BadRequestException('Cannot deactivate OAuth accounts');
+        }
+
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             throw new UnauthorizedException('Invalid password');
@@ -148,6 +153,11 @@ export class UsersService {
 
         if (!user) {
             throw new NotFoundException('User not found');
+        }
+
+        // Check if user has password (not OAuth user)
+        if (!user.password) {
+            throw new BadRequestException('Cannot delete OAuth accounts');
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);

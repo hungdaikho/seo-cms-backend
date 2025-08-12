@@ -1,9 +1,11 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request, Patch } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request, Patch, Get, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto, ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto, VerifyEmailDto, ResendVerificationDto } from './dto/auth.dto';
 import { AuthResponseDto, ErrorResponseDto } from '../common/dto/response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { Response } from 'express';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -197,5 +199,40 @@ Authenticate user and return JWT access token.
     })
     async resendVerification(@Body() resendVerificationDto: ResendVerificationDto) {
         return this.authService.resendVerification(resendVerificationDto);
+    }
+
+    @Get('google')
+    @UseGuards(GoogleAuthGuard)
+    @ApiOperation({
+        summary: 'Initiate Google OAuth login',
+        description: 'Redirects user to Google OAuth consent screen'
+    })
+    @ApiResponse({
+        status: 302,
+        description: 'Redirect to Google OAuth'
+    })
+    async googleAuth() {
+        // This will redirect to Google OAuth
+    }
+
+    @Get('google/callback')
+    @UseGuards(GoogleAuthGuard)
+    @ApiOperation({
+        summary: 'Handle Google OAuth callback',
+        description: 'Processes Google OAuth callback and returns JWT token'
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Google login successful',
+        type: AuthResponseDto
+    })
+    async googleAuthCallback(@Request() req, @Res() res: Response) {
+        const result = await this.authService.googleLogin(req.user);
+
+        // Redirect to frontend with token
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const redirectUrl = `${frontendUrl}/auth/google/success?token=${result.accessToken}`;
+
+        res.redirect(redirectUrl);
     }
 }
