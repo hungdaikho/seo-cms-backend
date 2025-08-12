@@ -23,6 +23,7 @@ import { DomainOverviewModule } from './domain-overview/domain-overview.module';
 import { TopicResearchModule } from './topic-research/topic-research.module';
 import { ContentModule } from './content/content.module';
 import { TrafficAnalyticsModule } from './traffic-analytics/traffic-analytics.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { TrafficAnalyticsModule } from './traffic-analytics/traffic-analytics.mo
     TopicResearchModule,
     ContentModule,
     TrafficAnalyticsModule,
+    AdminModule,
     SchedulerModule,
   ],
   controllers: [AppController],

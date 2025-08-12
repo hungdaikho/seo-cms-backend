@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AdminService } from './admin/admin.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -23,6 +24,15 @@ async function bootstrap() {
 
   // API prefix
   app.setGlobalPrefix('api/v1');
+
+  // Initialize default admin account and plans
+  try {
+    const adminService = app.get(AdminService);
+    await adminService.createDefaultAdmin();
+    await adminService.createDefaultPlans();
+  } catch (error) {
+    console.error('Failed to initialize admin account or plans:', error.message);
+  }
 
   // Swagger documentation
   const config = new DocumentBuilder()
@@ -84,6 +94,7 @@ For API support, please contact: support@ranktackerpro.com
     .addTag('Rankings', 'Keyword ranking history and analytics')
     .addTag('Notifications', 'User notification management')
     .addTag('Backlinks', 'Backlink profile and analytics')
+    .addTag('Admin', 'Administrative functions for user and subscription management')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

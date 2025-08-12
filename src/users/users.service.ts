@@ -21,6 +21,7 @@ export class UsersService {
                 emailVerified: true,
                 lastLoginAt: true,
                 createdAt: true,
+                role: true,
                 subscriptions: {
                     where: { status: { in: ['active', 'trial'] } },
                     include: { plan: true },
