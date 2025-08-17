@@ -24,6 +24,8 @@ import { TopicResearchModule } from './topic-research/topic-research.module';
 import { ContentModule } from './content/content.module';
 import { TrafficAnalyticsModule } from './traffic-analytics/traffic-analytics.module';
 import { AdminModule } from './admin/admin.module';
+import { KeywordGapModule } from './keyword-gap/keyword-gap.module';
+import { BacklinkGapModule } from './backlink-gap/backlink-gap.module';
 
 @Module({
   imports: [
@@ -51,9 +53,11 @@ import { AdminModule } from './admin/admin.module';
     ContentModule,
     TrafficAnalyticsModule,
     AdminModule,
+    KeywordGapModule,
+    BacklinkGapModule,
     SchedulerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

@@ -22,13 +22,54 @@ import {
   DomainTopicsDto,
 } from './dto/domain-overview.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { COUNTRIES, TOP_SEO_MARKETS } from '../common/constants/countries';
 
 @ApiTags('Domain Overview')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('api/v1/seo/domain-overview')
+@Controller('seo/domain-overview')
 export class DomainOverviewController {
   constructor(private readonly domainOverviewService: DomainOverviewService) {}
+
+  @Get('countries')
+  @ApiOperation({
+    summary: 'Get list of supported countries for domain analysis',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Countries retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        countries: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              code: { type: 'string', example: 'VN' },
+              name: { type: 'string', example: 'Vietnam' },
+              nameVi: { type: 'string', example: 'Việt Nam' },
+            },
+          },
+        },
+        topSeoMarkets: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['US', 'GB', 'DE', 'VN'],
+        },
+        total: { type: 'number', example: 249 },
+      },
+    },
+  })
+  async getSupportedCountries() {
+    return {
+      countries: COUNTRIES,
+      topSeoMarkets: TOP_SEO_MARKETS,
+      total: COUNTRIES.length,
+      message:
+        'All ISO 3166-1 alpha-2 country codes are supported, including Vietnam (VN)',
+    };
+  }
 
   // More specific routes must come first to avoid conflicts
   @Get('top-keywords/:domain')
