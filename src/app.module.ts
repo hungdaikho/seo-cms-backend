@@ -27,6 +27,7 @@ import { AdminModule } from './admin/admin.module';
 import { KeywordGapModule } from './keyword-gap/keyword-gap.module';
 import { BacklinkGapModule } from './backlink-gap/backlink-gap.module';
 import { EmailModule } from './email/email.module';
+import { CmsModule } from './cms/cms.module';
 
 @Module({
   imports: [
@@ -57,9 +58,10 @@ import { EmailModule } from './email/email.module';
     AdminModule,
     KeywordGapModule,
     BacklinkGapModule,
+    CmsModule,
     SchedulerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
