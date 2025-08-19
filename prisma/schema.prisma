@@ -92,6 +92,7 @@ model User {
 
   // Relations
   projects          Project[]
+  projectMembers    ProjectMember[]   // Các project đã apply
   subscriptions     UserSubscription[]
   usages            SubscriptionUsage[]
   payments          PaymentHistory[]
@@ -206,17 +207,21 @@ model PaymentHistory {
 }
 
 model Project {
-  id        String    @id @default(uuid()) @db.Uuid
-  name      String
-  domain    String
-  ownerId   String    @map("owner_id") @db.Uuid
-  settings  Json?
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String
+  domain        String
+  description   String?   // Mô tả project để người khác hiểu
+  ownerId       String    @map("owner_id") @db.Uuid
+  settings      Json?
+  isActive      Boolean   @default(true) @map("is_active")
+  isShared      Boolean   @default(false) @map("is_shared") // Cho phép share với người khác
+  shareCode     String?   @unique @map("share_code") // Mã chia sẻ unique để tìm kiếm
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
 
   // Relations
   owner                User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members              ProjectMember[]       // Thành viên được apply vào project
   keywords             Keyword[]
   audits               Audit[]
   competitors          Competitor[]
@@ -240,6 +245,36 @@ model Project {
   aiUsageTracking      AIUsageTracking[]
 
   @@map("projects")
+}
+
+// Quản lý thành viên apply vào project
+model ProjectMember {
+  id          String            @id @default(uuid()) @db.Uuid
+  projectId   String            @map("project_id") @db.Uuid
+  userId      String            @map("user_id") @db.Uuid
+  role        ProjectMemberRole @default(member)
+  status      ProjectMemberStatus @default(active)
+  appliedAt   DateTime          @default(now()) @map("applied_at")
+  approvedAt  DateTime?         @map("approved_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+enum ProjectMemberRole {
+  member    // Thành viên thường
+  moderator // Quản trị viên phụ
+}
+
+enum ProjectMemberStatus {
+  active    // Đang hoạt động
+  inactive  // Không hoạt động
 }
 
 model Keyword {

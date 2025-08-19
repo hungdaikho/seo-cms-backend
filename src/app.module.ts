@@ -26,6 +26,7 @@ import { TrafficAnalyticsModule } from './traffic-analytics/traffic-analytics.mo
 import { AdminModule } from './admin/admin.module';
 import { KeywordGapModule } from './keyword-gap/keyword-gap.module';
 import { BacklinkGapModule } from './backlink-gap/backlink-gap.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { BacklinkGapModule } from './backlink-gap/backlink-gap.module';
       isGlobal: true,
     }),
     DatabaseModule,
+    EmailModule,
     AuthModule,
     UsersModule,
     SubscriptionsModule,
@@ -60,4 +62,4 @@ import { BacklinkGapModule } from './backlink-gap/backlink-gap.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

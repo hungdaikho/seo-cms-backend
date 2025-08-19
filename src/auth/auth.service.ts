@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { DatabaseService } from '../database/database.service';
+import { EmailService } from '../email/email.service';
 import { RegisterDto, LoginDto, ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto, VerifyEmailDto, ResendVerificationDto, GoogleUserDto } from './dto/auth.dto';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class AuthService {
     constructor(
         private readonly databaseService: DatabaseService,
         private readonly jwtService: JwtService,
+        private readonly emailService: EmailService,
     ) { }
 
     async register(registerDto: RegisterDto) {
@@ -36,6 +38,27 @@ export class AuthService {
             },
         });
 
+        // Generate email verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationTokenExpiry = new Date(Date.now() + 86400000); // 24 hours
+
+        // Save verification token
+        await this.databaseService.emailVerification.create({
+            data: {
+                userId: user.id,
+                token: verificationToken,
+                expiresAt: verificationTokenExpiry,
+            },
+        });
+
+        // Send verification email
+        try {
+            await this.emailService.sendVerificationEmail(user.email, verificationToken);
+        } catch (error) {
+            console.error('Failed to send verification email:', error);
+            // Don't throw error as user registration should succeed even if email fails
+        }
+
         // Create trial subscription
         const trialPlan = await this.databaseService.subscriptionPlan.findFirst({
             where: { slug: 'trial' },
@@ -56,6 +79,9 @@ export class AuthService {
                 },
             });
         }
+
+        // NOTE: Welcome email will be sent after email verification
+        // Not sending welcome email here to avoid confusion
 
         // Generate JWT token
         const payload = { sub: user.id, email: user.email, role: user.role };
@@ -105,6 +131,11 @@ export class AuthService {
 
         if (!user.isActive) {
             throw new UnauthorizedException('Account is deactivated');
+        }
+
+        // Check if email is verified (skip for OAuth users who don't have password)
+        if (!user.emailVerified && user.password) {
+            throw new UnauthorizedException('Please verify your email before logging in');
         }
 
         // Update last login
@@ -220,8 +251,13 @@ export class AuthService {
             },
         });
 
-        // TODO: Send email with reset link
-        // await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+        // Send password reset email
+        try {
+            await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+        } catch (error) {
+            console.error('Failed to send password reset email:', error);
+            // Don't throw error to maintain security (don't reveal if user exists)
+        }
 
         return { message: 'If an account with that email exists, a password reset link has been sent.' };
     }
@@ -287,13 +323,24 @@ export class AuthService {
         await this.databaseService.$transaction([
             this.databaseService.user.update({
                 where: { id: verificationRecord.userId },
-                data: { emailVerified: true },
+                data: {
+                    emailVerified: true,
+                    emailVerifiedAt: new Date(),
+                },
             }),
             this.databaseService.emailVerification.update({
                 where: { id: verificationRecord.id },
                 data: { used: true },
             }),
         ]);
+
+        // Send welcome email after successful verification
+        try {
+            await this.emailService.sendWelcomeEmail(verificationRecord.user.email, verificationRecord.user.name);
+        } catch (error) {
+            console.error('Failed to send welcome email:', error);
+            // Don't throw error as verification already succeeded
+        }
 
         return { message: 'Email verified successfully' };
     }
@@ -326,8 +373,13 @@ export class AuthService {
             },
         });
 
-        // TODO: Send verification email
-        // await this.emailService.sendVerificationEmail(user.email, verificationToken);
+        // Send verification email
+        try {
+            await this.emailService.sendVerificationEmail(user.email, verificationToken);
+        } catch (error) {
+            console.error('Failed to send verification email:', error);
+            // Don't throw error to maintain security (don't reveal if user exists)
+        }
 
         return { message: 'If an account with that email exists, a verification email has been sent.' };
     }
@@ -449,6 +501,16 @@ export class AuthService {
                         },
                     },
                 });
+            }
+
+            // Send welcome email for new Google users
+            if (user) {
+                try {
+                    await this.emailService.sendWelcomeEmail(user.email, user.name);
+                } catch (error) {
+                    console.error('Failed to send welcome email to Google user:', error);
+                    // Don't throw error as registration already succeeded
+                }
             }
         } else {
             // Update existing user with Google info if not already set
